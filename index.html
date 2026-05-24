@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mapúa CBMES Inventory Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-800 font-sans">
+
+    <header class="bg-[#800000] text-white shadow-md px-6 py-4 flex justify-between items-center border-b-4 border-[#FFD700]">
+        <div class="flex items-center space-x-3">
+            <div class="bg-white text-[#800000] font-bold p-2 rounded-md text-sm tracking-tighter">MU</div>
+            <div>
+                <h1 class="text-xl font-bold tracking-wide">CBMES Department</h1>
+                <p class="text-xs text-amber-200">Inventory Management Portal</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-4">
+            <span class="text-xs bg-red-950 px-3 py-1 rounded-full border border-red-800 text-gray-200">Local Client</span>
+            <div class="w-8 h-8 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow">LC</div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-6 mt-8">
+
+        <section id="view-home" class="view-section">
+            <div class="mb-10">
+                <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">System Navigation Dashboard</h2>
+                <p class="text-gray-600 mt-2 text-md">
+                    Welcome back, Administrator. Select an isolated database inventory division below to query real-time levels, update log worksheets, or clear active borrow queues.
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                
+                <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 border-l-4 border-l-red-600 flex flex-col justify-between overflow-hidden">
+                    <div class="p-6">
+                        <div class="text-4xl mb-4"></div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">Chemicals Inventory</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Manage active reagents, tracking parameters, safety grades, and chemical expiry timelines.</p>
+                        <div class="flex flex-wrap gap-2">
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 border-t border-gray-100">
+                        <button data-target="chemicals" class="nav-btn w-full bg-white hover:bg-[#800000] text-[#800000] hover:text-white border border-gray-300 hover:border-[#800000] font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+                            <span>Enter Division</span><span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 border-l-4 border-l-amber-600 flex flex-col justify-between overflow-hidden">
+                    <div class="p-6">
+                        <div class="text-4xl mb-4"></div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">Materials Inventory</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Monitor structural samples, engineering substrates, raw metal stocks, and consumable media.</p>
+                        <div class="flex flex-wrap gap-2">
+                        </div>
+                    </div>
+                    <div class="p-4 bg-gray-50 border-t border-gray-100">
+                        <button data-target="materials" class="nav-btn w-full bg-white hover:bg-[#800000] text-[#800000] hover:text-white border border-gray-300 hover:border-[#800000] font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+                            <span>Enter Division</span><span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 border-l-4 border-l-blue-600 flex flex-col justify-between overflow-hidden">
+                    <div class="p-6">
+                        <div class="text-4xl mb-4"></div>
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">Lab Equipment</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Track digital hardware availability, serial profiles, active student loans, and tool calibration statuses.</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 border-t border-gray-100">
+                        <button data-target="equipment" class="nav-btn w-full bg-white hover:bg-[#800000] text-[#800000] hover:text-white border border-gray-300 hover:border-[#800000] font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+                            <span>Enter Division</span><span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+            </div>
+
+            <div id="urgent-alert-box" class="bg-orange-50 border border-orange-200 rounded-xl p-5 flex items-start space-x-4 hidden">
+                <div class="text-2xl mt-0.5"></div>
+                <div>
+                    <h4 class="text-sm font-bold text-orange-900 uppercase tracking-wider">Urgent Attention Flagged Items</h4>
+                    <p id="urgent-alert-text" class="text-xs text-orange-700 mt-1"></p>
+                </div>
+            </div>
+        </section>
+
+        <section id="view-division-detail" class="view-section hidden">
+            <div class="bg-white rounded-xl border border-gray-200 p-8 shadow-sm">
+                <button id="back-home-btn" class="mb-4 text-sm font-medium text-[#800000] hover:underline flex items-center space-x-1 cursor-pointer">
+                    <span>←</span> <span>Return to Main Dashboard</span>
+                </button>
+                <hr class="mb-6 border-gray-100">
+                <h2 id="division-title" class="text-2xl font-bold text-gray-900">Division View</h2>
+                <p id="division-desc" class="text-gray-600 mt-2">Data table interface workspace coming soon.</p>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="app.js"></script>
+</body>
+</html>
