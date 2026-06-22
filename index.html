@@ -4,7 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapúa CBMES Inventory Portal</title>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-800 font-sans">
 
@@ -17,8 +21,8 @@
             </div>
         </div>
         <div class="flex items-center space-x-4">
-            <span class="text-xs bg-red-950 px-3 py-1 rounded-full border border-red-800 text-gray-200">Local Client</span>
-            <div class="w-8 h-8 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow">LC</div>
+            <span class="text-xs bg-red-950 px-3 py-1 rounded-full border border-red-800 text-gray-200">Cloud Connected</span>
+            <div class="w-8 h-8 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow">DB</div>
         </div>
     </header>
 
@@ -102,12 +106,12 @@
                                     <option value="Tech">Technical</option>
                                 </select>
                                 <input type="text" id="chem-location" placeholder="Location" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
-                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900">Save</button>
+                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Save</button>
                             </form>
                         </div>
                         <div class="md:col-span-2 overflow-x-auto">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>CAS</th><th>Stock</th><th>Grade</th><th>Location</th></tr></thead>
+                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>CAS</th><th>Stock</th><th>Grade</th><th>Location</th><th>Actions</th></tr></thead>
                                 <tbody id="chemicals-table-body"></tbody>
                             </table>
                         </div>
@@ -125,12 +129,12 @@
                                     <option value="Metallic">Metallic</option>
                                 </select>
                                 <input type="text" id="mat-stock" placeholder="Quantity" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
-                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900">Save</button>
+                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Save</button>
                             </form>
                         </div>
                         <div class="md:col-span-2 overflow-x-auto">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>Category</th><th>Quantity</th></tr></thead>
+                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>Category</th><th>Quantity</th><th>Actions</th></tr></thead>
                                 <tbody id="materials-table-body"></tbody>
                             </table>
                         </div>
@@ -145,15 +149,15 @@
                                 <input type="text" id="eq-name" placeholder="Name" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
                                 <input type="text" id="eq-serial" placeholder="Serial #" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
                                 <select id="eq-status" class="w-full border border-gray-300 rounded-lg p-2 text-sm">
-                                    <option value="Available">Available for Use</option>
-                                    <option value="Maintenance">Under Maintenance</option>
+                                    <option value="Available">Available</option>
+                                    <option value="Maintenance">Maintenance</option>
                                 </select>
-                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900">Save</button>
+                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Save</button>
                             </form>
                         </div>
                         <div class="md:col-span-2 overflow-x-auto">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b uppercase text-xs font-bold text-gray-500"><th>Name</th><th>Serial</th><th>Status</th></tr></thead>
+                                <thead><tr class="border-b uppercase text-xs font-bold text-gray-500"><th>Name</th><th>Serial</th><th>Status</th><th>Action</th></tr></thead>
                                 <tbody id="equipment-table-body"></tbody>
                             </table>
                         </div>
