@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Mapúa CBMES Inventory Portal</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="min-h-screen bg-gray-50 text-gray-800 font-sans">
 
@@ -17,33 +18,51 @@
             </div>
         </div>
         <div class="flex items-center space-x-4">
-            <span class="text-xs bg-red-950 px-3 py-1 rounded-full border border-red-800 text-gray-200">Local Client</span>
-            <div class="w-8 h-8 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow">LC</div>
+            <span id="role-badge" class="hidden text-xs bg-amber-400 text-red-950 font-bold px-3 py-1 rounded-full shadow"></span>
+            <button id="btn-logout" class="hidden text-xs bg-red-950 px-3 py-1 rounded-full border border-red-800 text-gray-200 hover:bg-red-900 transition-colors cursor-pointer">Log Out</button>
+            <div class="w-8 h-8 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow">DB</div>
         </div>
     </header>
 
     <main class="max-w-6xl mx-auto p-6 mt-8">
 
-        <section id="view-home" class="view-section">
+        <section id="view-auth" class="view-section flex items-center justify-center min-h-[60vh]">
+            <div class="bg-white p-8 rounded-xl shadow-sm border border-gray-200 w-full max-w-md">
+                <h2 class="text-2xl font-extrabold text-gray-900 text-center mb-2">Portal Access</h2>
+                <p class="text-sm text-gray-500 text-center mb-6">Enter your credentials to access the database.</p>
+                
+                <form id="auth-form" class="space-y-4">
+                    <div>
+                        <label class="text-xs font-bold text-gray-600 uppercase">Email</label>
+                        <input type="email" id="auth-email" required class="w-full border border-gray-300 p-2 rounded mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs font-bold text-gray-600 uppercase">Password</label>
+                        <input type="password" id="auth-password" required class="w-full border border-gray-300 p-2 rounded mt-1">
+                    </div>
+                    
+                    <p id="auth-error" class="text-red-600 text-sm text-center hidden"></p>
+                    
+                    <div class="flex space-x-3 pt-2">
+                        <button type="submit" id="btn-login" class="w-full bg-[#800000] text-white font-semibold p-2 rounded hover:bg-red-900 transition-colors">Log In</button>
+                    </div>
+                    <p class="text-xs text-center text-gray-400 mt-4">New accounts must be created via Admin invite.</p>
+                </form>
+            </div>
+        </section>
+
+        <section id="view-home" class="view-section hidden">
             <div class="mb-10">
                 <h2 class="text-3xl font-extrabold text-gray-900 tracking-tight">System Navigation Dashboard</h2>
-                <p class="text-gray-600 mt-2 text-md">
-                    Welcome to the Mapúa CBMES Inventory Management Portal, Dr. Almendrala.
-                </p>
+                <p id="welcome-text" class="text-gray-600 mt-2 text-md"></p>
             </div>
 
-            <div id="urgent-alert-box" class="bg-orange-50 border border-orange-200 rounded-xl p-5 flex items-start space-x-4 hidden mb-8">
-                <div>
-                    <h4 class="text-sm font-bold text-orange-900 uppercase tracking-wider">Urgent Attention Flagged Items</h4>
-                    <p id="urgent-alert-text" class="text-xs text-orange-700 mt-1"></p>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                
                 <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 border-l-4 border-l-red-600 flex flex-col justify-between overflow-hidden">
                     <div class="p-6">
                         <h3 class="text-xl font-bold text-gray-900 mb-2">Chemicals Inventory</h3>
-                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Manage active reagents, tracking parameters, safety grades, and chemical expiry timelines.</p>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Manage active reagents and tracking parameters.</p>
                     </div>
                     <div class="p-4 bg-gray-50 border-t border-gray-100">
                         <button data-target="chemicals" class="nav-btn w-full bg-white hover:bg-[#800000] text-[#800000] hover:text-white border border-gray-300 hover:border-[#800000] font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
@@ -55,7 +74,7 @@
                 <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 border-l-4 border-l-amber-600 flex flex-col justify-between overflow-hidden">
                     <div class="p-6">
                         <h3 class="text-xl font-bold text-gray-900 mb-2">Materials Inventory</h3>
-                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Monitor structural samples, engineering substrates, raw metal stocks, and consumable media.</p>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Monitor structural samples and raw metal stocks.</p>
                     </div>
                     <div class="p-4 bg-gray-50 border-t border-gray-100">
                         <button data-target="materials" class="nav-btn w-full bg-white hover:bg-[#800000] text-[#800000] hover:text-white border border-gray-300 hover:border-[#800000] font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
@@ -67,7 +86,7 @@
                 <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 border-l-4 border-l-blue-600 flex flex-col justify-between overflow-hidden">
                     <div class="p-6">
                         <h3 class="text-xl font-bold text-gray-900 mb-2">Lab Equipment</h3>
-                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Track digital hardware availability, serial profiles, active student loans, and tool calibration statuses.</p>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Track digital hardware and calibration statuses.</p>
                     </div>
                     <div class="p-4 bg-gray-50 border-t border-gray-100">
                         <button data-target="equipment" class="nav-btn w-full bg-white hover:bg-[#800000] text-[#800000] hover:text-white border border-gray-300 hover:border-[#800000] font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
@@ -76,6 +95,21 @@
                     </div>
                 </div>
             </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+                <div id="admin-panel-card" class="hidden md:col-start-2 bg-white rounded-xl shadow-sm hover:shadow-md transition-all border border-gray-200 border-l-4 border-l-purple-600 flex flex-col justify-between overflow-hidden">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold text-gray-900 mb-2">Admin Panel</h3>
+                        <p class="text-gray-600 text-sm leading-relaxed mb-4">Send email invitations to new students or faculty members.</p>
+                    </div>
+                    <div class="p-4 bg-gray-50 border-t border-gray-100">
+                        <button data-target="admin-settings" class="nav-btn w-full bg-white hover:bg-purple-700 text-purple-700 hover:text-white border border-gray-300 hover:border-purple-700 font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+                            <span>Manage Users</span><span>→</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
         </section>
 
         <section id="view-division-detail" class="view-section hidden">
@@ -87,27 +121,43 @@
                 
                 <h2 id="division-title" class="text-2xl font-bold text-gray-900"></h2>
                 <p id="division-desc" class="text-gray-600 mt-2 mb-8"></p>
+
+                <div id="admin-settings-workspace" class="hidden">
+                    <div class="max-w-lg mx-auto bg-gray-50 p-6 rounded-xl border border-gray-200">
+                        <h3 class="text-lg font-bold text-gray-900 mb-4">Invite New User</h3>
+                        <form id="invite-form" class="space-y-4">
+                            <input type="text" id="invite-name" placeholder="Full Name" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
+                            <input type="email" id="invite-email" placeholder="Email Address" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
+                            <select id="invite-role" class="w-full border border-gray-300 rounded-lg p-2 text-sm">
+                                <option value="Student">Student</option>
+                                <option value="Admin">Professor / Admin</option>
+                            </select>
+                            <p id="invite-message" class="text-sm font-semibold hidden"></p>
+                            <button type="submit" class="w-full bg-purple-700 text-white p-2 rounded-lg hover:bg-purple-800 transition-colors cursor-pointer">Send Email Invitation</button>
+                        </form>
+                    </div>
+                </div>
                 
                 <div id="chemicals-workspace" class="hidden">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                        <div class="admin-only bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
                             <h3 class="text-lg font-bold text-gray-900 mb-4">Add New Chemical</h3>
                             <form id="chemical-form" class="space-y-4">
                                 <input type="text" id="chem-name" placeholder="Name" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
                                 <input type="text" id="chem-cas" placeholder="CAS Number" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
-                                <input type="text" id="chem-stock" placeholder="Stock" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
+                                <input type="text" id="chem-stock" placeholder="Stock (e.g. 500ml)" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
                                 <select id="chem-grade" class="w-full border border-gray-300 rounded-lg p-2 text-sm">
                                     <option value="AR">AR</option>
                                     <option value="Lab">Lab Grade</option>
                                     <option value="Tech">Technical</option>
                                 </select>
                                 <input type="text" id="chem-location" placeholder="Location" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
-                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900">Save</button>
+                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Save</button>
                             </form>
                         </div>
-                        <div class="md:col-span-2 overflow-x-auto">
+                        <div class="table-container overflow-x-auto md:col-span-2">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>CAS</th><th>Stock</th><th>Grade</th><th>Location</th></tr></thead>
+                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>CAS</th><th>Stock</th><th>Grade</th><th>Location</th><th>Actions</th></tr></thead>
                                 <tbody id="chemicals-table-body"></tbody>
                             </table>
                         </div>
@@ -116,7 +166,7 @@
 
                 <div id="materials-workspace" class="hidden">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                        <div class="admin-only bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
                             <h3 class="text-lg font-bold text-gray-900 mb-4">Add New Material</h3>
                             <form id="material-form" class="space-y-4">
                                 <input type="text" id="mat-name" placeholder="Name" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
@@ -125,12 +175,12 @@
                                     <option value="Metallic">Metallic</option>
                                 </select>
                                 <input type="text" id="mat-stock" placeholder="Quantity" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
-                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900">Save</button>
+                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Save</button>
                             </form>
                         </div>
-                        <div class="md:col-span-2 overflow-x-auto">
+                        <div class="table-container overflow-x-auto md:col-span-2">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>Category</th><th>Quantity</th></tr></thead>
+                                <thead><tr class="border-b text-xs font-bold text-gray-500 uppercase"><th>Name</th><th>Category</th><th>Quantity</th><th>Actions</th></tr></thead>
                                 <tbody id="materials-table-body"></tbody>
                             </table>
                         </div>
@@ -139,21 +189,21 @@
 
                 <div id="equipment-workspace" class="hidden">
                     <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
-                        <div class="bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
+                        <div class="admin-only bg-gray-50 p-6 rounded-xl border border-gray-200 h-fit">
                             <h3 class="font-bold text-lg text-gray-900 mb-4">Add Lab Equipment</h3>
                             <form id="equipment-form" class="space-y-4">
                                 <input type="text" id="eq-name" placeholder="Name" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
                                 <input type="text" id="eq-serial" placeholder="Serial #" required class="w-full border border-gray-300 rounded-lg p-2 text-sm">
                                 <select id="eq-status" class="w-full border border-gray-300 rounded-lg p-2 text-sm">
-                                    <option value="Available">Available for Use</option>
-                                    <option value="Maintenance">Under Maintenance</option>
+                                    <option value="Available">Available</option>
+                                    <option value="Maintenance">Maintenance</option>
                                 </select>
-                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900">Save</button>
+                                <button type="submit" class="w-full bg-[#800000] text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Save</button>
                             </form>
                         </div>
-                        <div class="md:col-span-2 overflow-x-auto">
+                        <div class="table-container overflow-x-auto md:col-span-2">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b uppercase text-xs font-bold text-gray-500"><th>Name</th><th>Serial</th><th>Status</th></tr></thead>
+                                <thead><tr class="border-b uppercase text-xs font-bold text-gray-500"><th>Name</th><th>Serial</th><th>Status</th><th>Action</th></tr></thead>
                                 <tbody id="equipment-table-body"></tbody>
                             </table>
                         </div>
