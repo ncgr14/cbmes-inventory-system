@@ -6,31 +6,33 @@
 import "@supabase/functions-js/edge-runtime.d.ts";
 import { withSupabase } from "@supabase/server";
 
-console.log("Hello from Functions!");
-
 // This endpoint uses 'publishable' | 'secret' access, apiKey is required.
 // Use publishable for Client-facing, key-validated endpoints
 // Use secret for Server-to-server, internal calls
 export default {
   fetch: withSupabase({ auth: ["publishable", "secret"] }, async (req, ctx) => {
-    // Called by another service with a secret key
-    // ctx.supabaseAdmin bypasses RLS — use for privileged operations
-    /*
-    if (ctx.authMode === "secret") {
-      const { user_id } = await req.json();
-      const { data } = await ctx.supabaseAdmin.auth.admin.getUserById(user_id);
+    try {
+      const { email, name, role } = await req.json();
 
-      return Response.json({
-        email: data?.user?.email,
+      if (!email) {
+        return Response.json({ error: "Missing required field: email" }, { status: 400 });
+      }
+
+      // ctx.supabaseAdmin bypasses RLS — required for auth.admin operations
+      const { data, error } = await ctx.supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+        data: { full_name: name, role },
       });
+
+      if (error) {
+        console.error("inviteUserByEmail failed:", error);
+        return Response.json({ error: error.message }, { status: 400 });
+      }
+
+      return Response.json({ success: true, data });
+    } catch (error) {
+      console.error("invite-user function error:", error);
+      return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 400 });
     }
-    */
-
-    const { name } = await req.json();
-
-    return Response.json({
-      message: `Hello ${name}!`,
-    });
   }),
 };
 
@@ -41,6 +43,6 @@ export default {
 
   curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/invite-user' \
     --header 'apiKey: sb_publishable_ACJWlzQHlZjBrEguHvfOxg_3BJgxAaH' \
-    --data '{"name":"Functions"}'
+    --data '{"email":"someone@example.com","name":"Someone","role":"staff"}'
 
 */
