@@ -26,7 +26,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const dismissNotificationBtn = document.getElementById('dismiss-notification-btn');
 
     let currentUserRole = 'Student';
+    let currentUserName = 'User';
     let justLoggedIn = false;
+    let initialHashHandled = false;
     let editState = { chemicals: null, materials: null, equipment: null, apparatus: null, suppliers: null, budgets: null };
 
     // Tables that carry a stock/threshold pair and should show a LOW STOCK badge
@@ -40,15 +42,31 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleSession(session, event) {
         if (session) {
             const userName = session.user.user_metadata?.full_name || 'User';
+            currentUserName = userName;
             currentUserRole = session.user.user_metadata?.role || 'Student'; 
-            
-            viewAuth.classList.add('hidden');
-            viewHome.classList.remove('hidden');
+
+            // Only transition away from the login screen once. Subsequent calls to
+            // handleSession happen in the background (token refresh, tab refocus)
+            // and must not clobber whichever view (home vs. a division) the user
+            // is currently looking at.
+            const isFirstLoad = !viewAuth.classList.contains('hidden');
+            if (isFirstLoad) {
+                viewAuth.classList.add('hidden');
+                viewHome.classList.remove('hidden');
+            }
             btnLogout.classList.remove('hidden');
             
             welcomeText.innerText = `Welcome to the Mapúa CBMES Inventory Management Portal, ${userName}.`;
             roleBadge.innerText = currentUserRole;
             roleBadge.classList.remove('hidden');
+
+            if (!initialHashHandled) {
+                initialHashHandled = true;
+                const hash = window.location.hash.replace('#', '');
+                if (hash && divisionData[hash] && (hash !== 'admin-settings' || currentUserRole === 'Admin')) {
+                    openDivision(hash, false);
+                }
+            }
 
             const adminForms = document.querySelectorAll('.admin-only');
             const tableContainers = document.querySelectorAll('.table-container');
@@ -79,6 +97,8 @@ document.addEventListener('DOMContentLoaded', () => {
             roleBadge.classList.add('hidden');
             notificationBell.classList.add('hidden');
             hideAlertsModal();
+            initialHashHandled = false;
+            currentUserName = 'User';
         }
     }
 
@@ -323,24 +343,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             if (table === 'chemicals') {
-                return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.classification || '—'}</td><td>${i.cas}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.grade}</td><td>${i.location}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
+                const cost = (i.unit_cost !== null && i.unit_cost !== undefined) ? `₱${Number(i.unit_cost).toLocaleString()}` : '—';
+                return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.classification || '—'}</td><td>${i.cas}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.grade}</td><td>${i.location}</td><td>${i.supplier || '—'}</td><td>${cost}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
             if (table === 'materials') {
                 return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
             if (table === 'equipment') {
-                return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${dueBadge(i.next_calibration_date)}</td><td>${dueBadge(i.next_maintenance_date)}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
+                const calCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.calibration_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_calibration_date)}</span></div>`;
+                const maintCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.maintenance_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_maintenance_date)}</span></div>`;
+                return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${calCell}</td><td>${maintCell}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
             if (table === 'apparatus') {
                 return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
             if (table === 'suppliers') {
-                return `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
+                return `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address || '—'}</td><td>${i.items_supplied || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
             if (table === 'budgets') {
                 const remaining = (parseFloat(i.allocated_amount) || 0) - (parseFloat(i.spent_amount) || 0);
                 const remainingCls = remaining < 0 ? 'text-red-500 font-bold' : 'text-emerald-500';
-                return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
+                return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td>${i.notes || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
         }).join('');
     }
@@ -407,6 +430,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('sup-contact').value = data.contact_person || '';
             document.getElementById('sup-phone').value = data.phone || '';
             document.getElementById('sup-email').value = data.email || '';
+            document.getElementById('sup-address').value = data.address || '';
             document.getElementById('sup-items').value = data.items_supplied || '';
             document.querySelector('#supplier-form button[type="submit"]').innerText = "Update";
         } else if (table === 'budgets') {
@@ -502,8 +526,86 @@ document.addEventListener('DOMContentLoaded', () => {
         contact_person: document.getElementById('sup-contact').value,
         phone: document.getElementById('sup-phone').value,
         email: document.getElementById('sup-email').value,
+        address: document.getElementById('sup-address').value,
         items_supplied: document.getElementById('sup-items').value
     }));
+
+    // ------------------------------------------------------------------
+    // Record Stock Delivery: links a supplier delivery to (a) the actual
+    // stock count of the item in its own division table, and (b) a running
+    // log appended to that supplier's Items Supplied field.
+    // ------------------------------------------------------------------
+    const deliverySupplierSelect = document.getElementById('delivery-supplier');
+    const deliveryDivisionSelect = document.getElementById('delivery-division');
+    const deliveryItemSelect = document.getElementById('delivery-item');
+    const deliveryForm = document.getElementById('delivery-form');
+    const deliveryMessage = document.getElementById('delivery-message');
+    let deliveryItemCache = {}; // id -> {name, stock, unit}
+
+    async function populateDeliverySuppliers() {
+        const { data, error } = await supabaseClient.from('suppliers').select('id, name');
+        if (error || !data) return;
+        const sorted = [...data].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
+        deliverySupplierSelect.innerHTML = '<option value="">Select supplier…</option>' +
+            sorted.map(s => `<option value="${s.id}">${s.name}</option>`).join('');
+    }
+
+    async function populateDeliveryItems() {
+        const table = deliveryDivisionSelect.value;
+        const { data, error } = await supabaseClient.from(table).select('id, name, stock, unit');
+        deliveryItemCache = {};
+        if (error || !data) { deliveryItemSelect.innerHTML = '<option value="">Select item…</option>'; return; }
+        const sorted = [...data].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
+        sorted.forEach(item => { deliveryItemCache[item.id] = item; });
+        deliveryItemSelect.innerHTML = '<option value="">Select item…</option>' +
+            sorted.map(item => `<option value="${item.id}">${item.name} (currently ${item.stock} ${item.unit || ''})</option>`).join('');
+    }
+
+    if (deliveryDivisionSelect) {
+        deliveryDivisionSelect.addEventListener('change', populateDeliveryItems);
+    }
+
+    if (deliveryForm) {
+        deliveryForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (currentUserRole !== 'Admin') return alert("Unauthorized.");
+
+            const supplierId = deliverySupplierSelect.value;
+            const table = deliveryDivisionSelect.value;
+            const itemId = deliveryItemSelect.value;
+            const qty = parseFloat(document.getElementById('delivery-qty').value);
+
+            if (!supplierId || !itemId || isNaN(qty) || qty <= 0) {
+                alert('Please select a supplier, an item, and enter a valid quantity.');
+                return;
+            }
+
+            const item = deliveryItemCache[itemId];
+            const currentStock = parseFloat(item.stock) || 0;
+            const newStock = currentStock + qty;
+
+            const { error: stockError } = await supabaseClient.from(table).update({ stock: newStock }).eq('id', itemId);
+            if (stockError) { alert(`Failed to update stock: ${stockError.message}`); return; }
+
+            const { data: supplierRow, error: supplierFetchError } = await supabaseClient.from('suppliers').select('items_supplied').eq('id', supplierId).single();
+            if (!supplierFetchError && supplierRow) {
+                const today = new Date().toISOString().split('T')[0];
+                const logLine = `${qty} ${item.unit || ''} ${item.name} (${today})`.replace(/\s+/g, ' ').trim();
+                const updatedItemsSupplied = supplierRow.items_supplied ? `${supplierRow.items_supplied}; ${logLine}` : logLine;
+                await supabaseClient.from('suppliers').update({ items_supplied: updatedItemsSupplied }).eq('id', supplierId);
+            }
+
+            fetchAndRenderTable(table);
+            fetchAndRenderTable('suppliers');
+            refreshAlerts(false);
+
+            deliveryMessage.classList.remove('hidden', 'text-red-500');
+            deliveryMessage.classList.add('text-emerald-500');
+            deliveryMessage.innerText = `Added ${qty} ${item.unit || ''} to ${item.name} — new stock: ${newStock} ${item.unit || ''}. Logged under supplier's Items Supplied.`;
+            deliveryForm.reset();
+            deliveryItemSelect.innerHTML = '<option value="">Select item…</option>';
+        });
+    }
 
     document.getElementById('budget-form').addEventListener('submit', (e) => handleFormSubmit(e, 'budgets', {
         fiscal_year: document.getElementById('bud-year').value,
@@ -513,26 +615,55 @@ document.addEventListener('DOMContentLoaded', () => {
         notes: document.getElementById('bud-notes').value
     }));
 
+    const EDITABLE_FORM_IDS = ['chemical-form', 'material-form', 'equipment-form', 'apparatus-form', 'supplier-form', 'budget-form'];
     function resetFormsAndState() {
         editState = { chemicals: null, materials: null, equipment: null, apparatus: null, suppliers: null, budgets: null };
-        document.querySelectorAll('form').forEach(f => { f.reset(); const btn = f.querySelector('button[type="submit"]'); if(btn) btn.innerText = "Save"; });
+        EDITABLE_FORM_IDS.forEach(id => {
+            const f = document.getElementById(id);
+            if (!f) return;
+            f.reset();
+            const btn = f.querySelector('button[type="submit"]');
+            if (btn) btn.innerText = "Save";
+        });
+    }
+
+    function openDivision(targetDivision, pushHistory) {
+        if (!divisionData[targetDivision]) return;
+        if (targetDivision === 'admin-settings' && currentUserRole !== 'Admin') { goHome(true); return; }
+        if(divisionTitle) divisionTitle.innerText = divisionData[targetDivision].title;
+        if(divisionDesc) divisionDesc.innerText = divisionData[targetDivision].description;
+        viewHome.classList.add('hidden');
+        viewDetail.classList.remove('hidden');
+        Object.keys(workspaces).forEach(key => { if (workspaces[key]) workspaces[key].classList.toggle('hidden', key !== targetDivision); });
+        resetFormsAndState();
+        if (targetDivision === 'suppliers' && currentUserRole === 'Admin') {
+            populateDeliverySuppliers();
+            populateDeliveryItems();
+        }
+        if (pushHistory) history.pushState({ division: targetDivision }, '', '#' + targetDivision);
+        window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    function goHome(pushHistory) {
+        viewDetail.classList.add('hidden');
+        viewHome.classList.remove('hidden');
+        resetFormsAndState();
+        if (pushHistory) history.pushState({ division: null }, '', window.location.pathname + window.location.search);
+        window.scrollTo({ top: 0, behavior: 'auto' });
     }
 
     document.querySelectorAll('.nav-btn').forEach(button => {
-        button.addEventListener('click', () => {
-            const targetDivision = button.getAttribute('data-target');
-            if (divisionData[targetDivision]) {
-                if(divisionTitle) divisionTitle.innerText = divisionData[targetDivision].title;
-                if(divisionDesc) divisionDesc.innerText = divisionData[targetDivision].description;
-                viewHome.classList.add('hidden');
-                viewDetail.classList.remove('hidden');
-                Object.keys(workspaces).forEach(key => { if (workspaces[key]) workspaces[key].classList.toggle('hidden', key !== targetDivision); });
-                resetFormsAndState();
-            }
-        });
+        button.addEventListener('click', () => openDivision(button.getAttribute('data-target'), true));
     });
 
-    backBtn.addEventListener('click', () => { viewDetail.classList.add('hidden'); viewHome.classList.remove('hidden'); resetFormsAndState(); });
+    backBtn.addEventListener('click', () => goHome(true));
+
+    // Browser back/forward buttons
+    window.addEventListener('popstate', () => {
+        const hash = window.location.hash.replace('#', '');
+        if (hash && divisionData[hash]) openDivision(hash, false);
+        else goHome(false);
+    });
 
     // ------------------------------------------------------------------
     // Report export: CSV and PDF, per division, using the same alphabetical
@@ -559,7 +690,8 @@ document.addEventListener('DOMContentLoaded', () => {
             title: "Lab Equipment Registry Report",
             columns: [
                 { key: 'name', label: 'Name' }, { key: 'serial', label: 'Serial #' }, { key: 'classification', label: 'Class' },
-                { key: 'status', label: 'Status' }, { key: 'next_calibration_date', label: 'Next Calibration' },
+                { key: 'status', label: 'Status' }, { key: 'calibration_date', label: 'Last Calibration' },
+                { key: 'next_calibration_date', label: 'Next Calibration' }, { key: 'maintenance_date', label: 'Last Maintenance' },
                 { key: 'next_maintenance_date', label: 'Next Maintenance' }, { key: 'supplier', label: 'Supplier' },
             ]
         },
@@ -574,7 +706,7 @@ document.addEventListener('DOMContentLoaded', () => {
             title: "Suppliers Directory Report",
             columns: [
                 { key: 'name', label: 'Company' }, { key: 'category', label: 'Category' }, { key: 'contact_person', label: 'Contact' },
-                { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' }, { key: 'items_supplied', label: 'Items Supplied' },
+                { key: 'phone', label: 'Phone' }, { key: 'email', label: 'Email' }, { key: 'address', label: 'Address' }, { key: 'items_supplied', label: 'Items Supplied' },
             ]
         },
         budgets: {
@@ -601,6 +733,12 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
 
+    // Turns a report title like "Chemicals Inventory Report" into a safe,
+    // readable filename fragment: "Chemicals_Inventory_Report"
+    function slugifyForFilename(text) {
+        return text.replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    }
+
     function csvEscape(val) {
         if (val === null || val === undefined) return '';
         const s = String(val);
@@ -611,12 +749,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const config = EXPORT_CONFIG[table];
         const rows = await getExportRows(table);
         if (!rows) return;
+        const dateStr = new Date().toISOString().split('T')[0];
+        const preamble = [
+            `Report,${csvEscape(config.title)}`,
+            `Generated by,${csvEscape(currentUserName)}`,
+            `Generated on,${csvEscape(dateStr)}`,
+            `Record count,${rows.length}`,
+            ''
+        ].join('\n');
         const header = config.columns.map(c => csvEscape(c.label)).join(',');
         const lines = rows.map(row => config.columns.map(c => csvEscape(row[c.key])).join(','));
-        const csv = [header, ...lines].join('\n');
+        const csv = preamble + [header, ...lines].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        const dateStr = new Date().toISOString().split('T')[0];
-        downloadBlob(blob, `CBMES_${table}_${dateStr}.csv`);
+        downloadBlob(blob, `CBMES_${slugifyForFilename(config.title)}_${dateStr}.csv`);
     }
 
     async function exportPDF(table) {
@@ -626,27 +771,35 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof window.jspdf === 'undefined') { alert('PDF export library did not load. Check your internet connection and try again.'); return; }
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
-        const dateStr = new Date().toLocaleDateString();
+        if (typeof doc.autoTable !== 'function') { alert('PDF table plugin did not load. Check your internet connection and try again.'); return; }
 
-        doc.setFontSize(14); doc.setTextColor(128, 0, 0);
-        doc.text('Mapúa CBMES Inventory Management Portal', 40, 40);
-        doc.setFontSize(11); doc.setTextColor(60, 60, 60);
-        doc.text(config.title, 40, 58);
-        doc.setFontSize(8); doc.setTextColor(120, 120, 120);
-        doc.text(`Generated ${dateStr} — ${rows.length} record${rows.length !== 1 ? 's' : ''}`, 40, 72);
+        try {
+            const dateStr = new Date().toLocaleDateString();
 
-        doc.autoTable({
-            startY: 85,
-            head: [config.columns.map(c => c.label)],
-            body: rows.map(row => config.columns.map(c => (row[c.key] === null || row[c.key] === undefined) ? '' : String(row[c.key]))),
-            styles: { fontSize: 7, cellPadding: 4 },
-            headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
-            alternateRowStyles: { fillColor: [245, 245, 245] },
-            margin: { left: 40, right: 40 },
-        });
+            doc.setFontSize(14); doc.setTextColor(128, 0, 0);
+            doc.text('Mapúa CBMES Inventory Management Portal', 40, 40);
+            doc.setFontSize(11); doc.setTextColor(60, 60, 60);
+            doc.text(config.title, 40, 58);
+            doc.setFontSize(8); doc.setTextColor(120, 120, 120);
+            doc.text(`Generated by ${currentUserName} on ${dateStr} — ${rows.length} record${rows.length !== 1 ? 's' : ''}`, 40, 72);
+
+            doc.autoTable({
+                startY: 88,
+                head: [config.columns.map(c => c.label)],
+                body: rows.map(row => config.columns.map(c => (row[c.key] === null || row[c.key] === undefined) ? '' : String(row[c.key]))),
+                styles: { fontSize: 7, cellPadding: 4 },
+                headStyles: { fillColor: [128, 0, 0], textColor: [255, 255, 255], fontStyle: 'bold' },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+                margin: { left: 40, right: 40 },
+            });
+        } catch (err) {
+            console.error('PDF export failed:', err);
+            alert(`PDF export failed: ${err.message}`);
+            return;
+        }
 
         const dateFile = new Date().toISOString().split('T')[0];
-        doc.save(`CBMES_${table}_${dateFile}.pdf`);
+        doc.save(`CBMES_${slugifyForFilename(config.title)}_${dateFile}.pdf`);
     }
 
     document.querySelectorAll('[data-export-csv]').forEach(btn => {
@@ -655,5 +808,4 @@ document.addEventListener('DOMContentLoaded', () => {
     document.querySelectorAll('[data-export-pdf]').forEach(btn => {
         btn.addEventListener('click', () => exportPDF(btn.getAttribute('data-export-pdf')));
     });
-
 });
