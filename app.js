@@ -7,6 +7,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewAuth = document.getElementById('view-auth');
     const viewHome = document.getElementById('view-home');
     const viewDetail = document.getElementById('view-division-detail');
+    const viewSetPassword = document.getElementById('view-set-password');
     
     const divisionTitle = document.getElementById('division-title');
     const divisionDesc = document.getElementById('division-desc');
@@ -14,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const authForm = document.getElementById('auth-form');
     const authError = document.getElementById('auth-error');
+    const authSuccess = document.getElementById('auth-success');
     const btnLogout = document.getElementById('btn-logout');
     const welcomeText = document.getElementById('welcome-text');
     const roleBadge = document.getElementById('role-badge');
@@ -24,11 +26,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const notificationContent = document.getElementById('notification-content');
     const closeNotificationModal = document.getElementById('close-notification-modal');
     const dismissNotificationBtn = document.getElementById('dismiss-notification-btn');
+    const setPasswordForm = document.getElementById('set-password-form');
+    const setPasswordError = document.getElementById('set-password-error');
 
     let currentUserRole = 'Student';
     let currentUserName = 'User';
+    let currentUserId = null;
     let justLoggedIn = false;
     let initialHashHandled = false;
+    let isPasswordSetupFlow = false;
     let editState = { chemicals: null, materials: null, equipment: null, apparatus: null, suppliers: null, budgets: null };
 
     // Tables that carry a stock/threshold pair and should show a LOW STOCK badge
@@ -36,13 +42,65 @@ document.addEventListener('DOMContentLoaded', () => {
     // How many days ahead counts as "due soon" for calibration/maintenance
     const DUE_SOON_DAYS = 30;
 
+    // ------------------------------------------------------------------
+    // Invite / password-recovery detection.
+    //
+    // Supabase auto-authenticates an invite or recovery link the instant
+    // it's opened — before the person has ever set a password. We have to
+    // catch that exact moment and gate them into a "set your password"
+    // screen instead of dropping them straight into the dashboard (or, if
+    // the redirect/session detection has any hiccup, a dead-end login
+    // screen with no way forward).
+    //
+    // Detection uses two signals:
+    //  1. The raw URL hash, checked synchronously on load — Supabase's own
+    //     client processes this hash asynchronously, so reading it
+    //     ourselves first (before any await/promise resolves) reliably sees
+    //     `type=invite` or `type=recovery` before it gets consumed/cleaned up.
+    //  2. The PASSWORD_RECOVERY event from onAuthStateChange, as a second,
+    //     Supabase-documented signal that catches cases the hash check
+    //     might miss.
+    //
+    // Known limitation: this only reliably fires on the initial click-through
+    // from the email link. If someone abandons the set-password screen
+    // (closes the tab without submitting) and returns later, the
+    // authenticated session persists but the hash is gone, so they'd land
+    // back in the app without the gate. Acceptable tradeoff for this tool's
+    // scale; flagging it rather than hiding it.
+    (function detectInviteOrRecoveryFlow() {
+        const hash = window.location.hash || '';
+        if (hash.includes('type=invite') || hash.includes('type=recovery')) {
+            isPasswordSetupFlow = true;
+        }
+    })();
+
+    function showOnlySetPasswordScreen() {
+        viewAuth.classList.add('hidden');
+        viewHome.classList.add('hidden');
+        viewDetail.classList.add('hidden');
+        viewSetPassword.classList.remove('hidden');
+        btnLogout.classList.add('hidden');
+        roleBadge.classList.add('hidden');
+        notificationBell.classList.add('hidden');
+    }
+
     supabaseClient.auth.getSession().then(({ data: { session } }) => { handleSession(session, 'INITIAL_SESSION'); });
     supabaseClient.auth.onAuthStateChange((event, session) => { handleSession(session, event); });
 
     function handleSession(session, event) {
+        if (event === 'PASSWORD_RECOVERY') {
+            isPasswordSetupFlow = true;
+        }
+
         if (session) {
+            if (isPasswordSetupFlow) {
+                showOnlySetPasswordScreen();
+                return;
+            }
+
             const userName = session.user.user_metadata?.full_name || 'User';
             currentUserName = userName;
+            currentUserId = session.user.id;
             currentUserRole = session.user.user_metadata?.role || 'Student'; 
 
             // Only transition away from the login screen once. Subsequent calls to
@@ -52,6 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const isFirstLoad = !viewAuth.classList.contains('hidden');
             if (isFirstLoad) {
                 viewAuth.classList.add('hidden');
+                viewSetPassword.classList.add('hidden');
                 viewHome.classList.remove('hidden');
             }
             btnLogout.classList.remove('hidden');
@@ -93,12 +152,14 @@ document.addEventListener('DOMContentLoaded', () => {
             viewAuth.classList.remove('hidden');
             viewHome.classList.add('hidden');
             viewDetail.classList.add('hidden');
+            viewSetPassword.classList.add('hidden');
             btnLogout.classList.add('hidden');
             roleBadge.classList.add('hidden');
             notificationBell.classList.add('hidden');
             hideAlertsModal();
             initialHashHandled = false;
             currentUserName = 'User';
+            currentUserId = null;
         }
     }
 
@@ -120,6 +181,43 @@ document.addEventListener('DOMContentLoaded', () => {
     btnLogout.addEventListener('click', async () => {
         await supabaseClient.auth.signOut();
         resetFormsAndState();
+    });
+
+    setPasswordForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        setPasswordError.classList.add('hidden');
+
+        const newPassword = document.getElementById('set-password-new').value;
+        const confirmPassword = document.getElementById('set-password-confirm').value;
+
+        if (newPassword !== confirmPassword) {
+            setPasswordError.innerText = "Passwords don't match.";
+            setPasswordError.classList.remove('hidden');
+            return;
+        }
+        if (newPassword.length < 6) {
+            setPasswordError.innerText = "Password must be at least 6 characters.";
+            setPasswordError.classList.remove('hidden');
+            return;
+        }
+
+        const { error } = await supabaseClient.auth.updateUser({ password: newPassword });
+        if (error) {
+            setPasswordError.innerText = error.message;
+            setPasswordError.classList.remove('hidden');
+            return;
+        }
+
+        // Account is created. Sign out and land back on the normal login
+        // screen so they log in fresh with their new password, rather than
+        // silently continuing an existing session.
+        isPasswordSetupFlow = false;
+        history.replaceState(null, '', window.location.pathname + window.location.search);
+        await supabaseClient.auth.signOut();
+
+        setPasswordForm.reset();
+        authSuccess.innerText = "Your account is ready — please log in with your new password.";
+        authSuccess.classList.remove('hidden');
     });
 
     // ADMIN INVITE LOGIC
@@ -247,7 +345,6 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
 
-        // Most urgent first (overdue before due-soon, most overdue first)
         alerts.calibration.sort((a, b) => a.diffDays - b.diffDays);
         return alerts;
     }
