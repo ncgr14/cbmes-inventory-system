@@ -1,6 +1,6 @@
 // Setup type definitions for built-in Supabase Runtime APIs
-import "npm:@supabase/functions-js/edge-runtime.d.ts";
-import { withSupabase } from "npm:@supabase/server";
+import "@supabase/functions-js/edge-runtime.d.ts";
+import { withSupabase } from "@supabase/server";
 
 // IMPORTANT: this must match your project's actual "Email OTP Expiration"
 // setting (Supabase Dashboard → Authentication → Sign In / Providers →
