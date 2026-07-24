@@ -244,8 +244,87 @@ document.addEventListener('DOMContentLoaded', () => {
             msg.classList.replace('text-zinc-400', 'text-emerald-500');
             msg.innerText = `Invite sent successfully to ${email}!`;
             e.target.reset();
+            fetchAndRenderPendingInvites();
         }
     });
+
+    // ------------------------------------------------------------------
+    // Pending Invites: list everyone who's been sent an invite (accepted or
+    // not) with a live countdown to link expiry, and a way to cancel one.
+    // ------------------------------------------------------------------
+    function formatTimeRemaining(seconds) {
+        if (seconds <= 0) return { label: 'Expired', cls: 'bg-zinc-700/40 text-zinc-500 border border-zinc-700' };
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const label = hours > 0 ? `${hours}h ${minutes}m remaining` : `${minutes}m remaining`;
+        const cls = seconds <= 600
+            ? 'bg-red-500/15 text-red-400 border border-red-900'
+            : seconds <= 1800
+                ? 'bg-amber-500/15 text-amber-400 border border-amber-900'
+                : 'bg-emerald-500/15 text-emerald-400 border border-emerald-900';
+        return { label, cls };
+    }
+
+    async function fetchAndRenderPendingInvites() {
+        const tbody = document.getElementById('pending-invites-table-body');
+        if (!tbody) return;
+        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-zinc-500 text-sm">Loading…</td></tr>`;
+
+        const { data, error } = await supabaseClient.functions.invoke('manage-invites', { body: { action: 'list' } });
+
+        if (error || !data || !data.invites) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-red-500 text-sm">Failed to load invites. Check Edge Function setup.</td></tr>`;
+            console.error(error);
+            return;
+        }
+
+        if (data.invites.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-zinc-500 text-sm">No invitations sent yet.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = data.invites.map(inv => {
+            const invitedDate = new Date(inv.invited_at).toLocaleString();
+            let statusCell, expiresCell;
+            if (inv.accepted) {
+                statusCell = `<span class="inline-block bg-emerald-500/15 text-emerald-400 border border-emerald-900 text-[11px] font-semibold px-2 py-0.5 rounded-full">Accepted</span>`;
+                expiresCell = `<span class="text-zinc-600 text-xs">—</span>`;
+            } else {
+                const rem = formatTimeRemaining(inv.seconds_remaining);
+                statusCell = `<span class="inline-block bg-amber-500/15 text-amber-400 border border-amber-900 text-[11px] font-semibold px-2 py-0.5 rounded-full">Pending</span>`;
+                expiresCell = `<span class="inline-block ${rem.cls} text-[11px] font-semibold px-2 py-0.5 rounded-full">${rem.label}</span>`;
+            }
+            return `<tr>
+                <td class="py-3">${inv.name}</td>
+                <td>${inv.email}</td>
+                <td>${inv.role}</td>
+                <td>${statusCell}</td>
+                <td title="Invited ${invitedDate}">${expiresCell}</td>
+                <td class="text-right"><button onclick="cancelInvite('${inv.id}', '${inv.email.replace(/'/g, "\\'")}')" class="text-red-600 hover:underline">Delete</button></td>
+            </tr>`;
+        }).join('');
+    }
+
+    window.cancelInvite = async (userId, email) => {
+        if (currentUserRole !== 'Admin') return alert("Unauthorized.");
+        if (!confirm(`Delete the invitation for ${email}? This removes the account entirely — they'll need a brand new invite if you change your mind.`)) return;
+
+        const { data, error } = await supabaseClient.functions.invoke('manage-invites', {
+            body: { action: 'cancel', user_id: userId }
+        });
+
+        if (error) {
+            alert(`Failed to delete invitation: ${error.message || 'Check Edge Function setup.'}`);
+            console.error(error);
+        } else {
+            fetchAndRenderPendingInvites();
+        }
+    };
+
+    const refreshInvitesBtn = document.getElementById('refresh-invites-btn');
+    if (refreshInvitesBtn) {
+        refreshInvitesBtn.addEventListener('click', fetchAndRenderPendingInvites);
+    }
 
     const workspaces = {
         chemicals: document.getElementById('chemicals-workspace'),
@@ -736,6 +815,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetDivision === 'suppliers' && currentUserRole === 'Admin') {
             populateDeliverySuppliers();
             populateDeliveryItems();
+        }
+        if (targetDivision === 'admin-settings' && currentUserRole === 'Admin') {
+            fetchAndRenderPendingInvites();
         }
         if (pushHistory) history.pushState({ division: targetDivision }, '', '#' + targetDivision);
         window.scrollTo({ top: 0, behavior: 'auto' });

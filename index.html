@@ -244,6 +244,20 @@
                             <button type="submit" class="w-full bg-purple-700 text-white p-2 rounded-lg hover:bg-purple-800 transition-colors cursor-pointer">Send Email Invitation</button>
                         </form>
                     </div>
+
+                    <div class="max-w-3xl mx-auto bg-zinc-800 p-6 rounded-xl border border-zinc-800 mt-6">
+                        <div class="flex items-center justify-between mb-1">
+                            <h3 class="text-lg font-bold text-zinc-100">Sent Invitations</h3>
+                            <button id="refresh-invites-btn" class="text-xs font-medium px-2.5 py-1 rounded-md border border-zinc-700 text-zinc-400 hover:bg-zinc-900 hover:text-zinc-200 transition-colors cursor-pointer">↻ Refresh</button>
+                        </div>
+                        <p class="text-zinc-500 text-xs mb-4">Everyone who's been sent an invite link, whether they've accepted it yet or not. Unaccepted invite links expire after the window shown below.</p>
+                        <div class="table-container overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px]">Name</th><th class="min-w-[200px]">Email</th><th class="min-w-[100px]">Role</th><th class="min-w-[130px]">Status</th><th class="min-w-[180px]">Expires In</th><th class="min-w-[90px]">Action</th></tr></thead>
+                                <tbody id="pending-invites-table-body"><tr><td colspan="6" class="py-4 text-zinc-500 text-sm">Loading…</td></tr></tbody>
+                            </table>
+                        </div>
+                    </div>
                 </div>
                 
                 <div id="chemicals-workspace" class="hidden">
