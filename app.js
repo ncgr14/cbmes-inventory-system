@@ -361,12 +361,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function lowStockBadge(item) {
-        return isLowStock(item) ? ' <span class="inline-block bg-red-500/15 text-red-400 border border-red-900 text-[10px] font-bold px-2 py-0.5 rounded-full ml-1">LOW STOCK</span>' : '';
-    }
-
-    // Like lowStockBadge, but rendered on its own line below the item name
-    // rather than crammed inline next to it (used where row readability matters most).
-    function lowStockBadgeBelow(item) {
         return isLowStock(item) ? '<div class="mt-1"><span class="inline-block bg-red-500/15 text-red-400 border border-red-900 text-[10px] font-bold px-2 py-0.5 rounded-full">LOW STOCK</span></div>' : '';
     }
 
@@ -509,88 +503,85 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...data].sort((a, b) => String(a[field] || '').localeCompare(String(b[field] || ''), undefined, { sensitivity: 'base' }));
     }
 
-    async function fetchAndRenderTable(table) {
-        const { data, error } = await supabaseClient.from(table).select('*');
-        if (error) { console.error(`Error fetching ${table}:`, error); return; }
+    function actionButtonsFor(table, i) {
+        if (currentUserRole === 'Admin') {
+            return `<button onclick="editItem('${table}', ${i.id})" class="text-blue-600 hover:underline">Edit</button>
+                    <button onclick="deleteItem('${table}', ${i.id})" class="text-red-600 hover:underline">Delete</button>`;
+        }
+        if (STOCK_TABLES.has(table) || table === 'equipment') {
+            const currentVal = table === 'equipment' ? i.status : i.stock;
+            return `<button onclick="adjustStock('${table}', ${i.id}, '${currentVal}')" class="text-amber-600 hover:underline">Adjust</button>`;
+        }
+        return '';
+    }
 
-        tableDataCache[table] = data;
+    // Every table has its own row markup, but is rendered through the same
+    // cache + search + filter pipeline (renderFilterableTable) so they all
+    // behave identically.
+    const ROW_HTML = {
+        chemicals: (i) => {
+            const cost = (i.unit_cost !== null && i.unit_cost !== undefined) ? `₱${Number(i.unit_cost).toLocaleString()}` : '—';
+            return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.classification || '—'}</td><td>${i.cas}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.grade}</td><td>${i.location}</td><td>${i.supplier || '—'}</td><td>${cost}</td><td class="text-right space-x-3">${actionButtonsFor('chemicals', i)}</td></tr>`;
+        },
+        materials: (i) => `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('materials', i)}</td></tr>`,
+        equipment: (i) => {
+            const calCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.calibration_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_calibration_date)}</span></div>`;
+            const maintCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.maintenance_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_maintenance_date)}</span></div>`;
+            return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${calCell}</td><td>${maintCell}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('equipment', i)}</td></tr>`;
+        },
+        apparatus: (i) => `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('apparatus', i)}</td></tr>`,
+        suppliers: (i) => `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address || '—'}</td><td>${i.items_supplied || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('suppliers', i)}</td></tr>`,
+        budgets: (i) => {
+            const remaining = (parseFloat(i.allocated_amount) || 0) - (parseFloat(i.spent_amount) || 0);
+            const remainingCls = remaining < 0 ? 'text-red-500 font-bold' : 'text-emerald-500';
+            return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td>${i.notes || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('budgets', i)}</td></tr>`;
+        }
+    };
 
-        if (table === 'apparatus') { renderApparatusTable(); return; }
+    // Field(s) the search box matches against, and the field the filter
+    // dropdown matches exactly, per table.
+    const SEARCH_FIELDS = {
+        chemicals: ['name'], materials: ['name'], equipment: ['name', 'serial'],
+        apparatus: ['name'], suppliers: ['name'], budgets: ['category', 'notes']
+    };
+    const FILTER_FIELD = {
+        chemicals: 'classification', materials: 'category', equipment: 'classification',
+        apparatus: 'category', suppliers: 'category', budgets: 'category'
+    };
+    const TABLE_COLSPAN = { chemicals: 9, materials: 5, equipment: 8, apparatus: 6, suppliers: 8, budgets: 7 };
 
+    function renderFilterableTable(table) {
         const tbody = document.getElementById(`${table}-table-body`);
         if (!tbody) return;
 
-        const sorted = sortAlphabetically(table, data);
+        const search = (document.getElementById(`${table}-search`)?.value || '').trim().toLowerCase();
+        const filterVal = document.getElementById(`${table}-filter`)?.value || '';
+        const filterField = FILTER_FIELD[table];
+        const searchFields = SEARCH_FIELDS[table] || ['name'];
 
-        tbody.innerHTML = sorted.map(i => {
-            let actionButtons = '';
-            if (currentUserRole === 'Admin') {
-                actionButtons = `<button onclick="editItem('${table}', ${i.id})" class="text-blue-600 hover:underline">Edit</button>
-                                 <button onclick="deleteItem('${table}', ${i.id})" class="text-red-600 hover:underline">Delete</button>`;
-            } else if (STOCK_TABLES.has(table) || table === 'equipment') {
-                const currentVal = table === 'equipment' ? i.status : i.stock;
-                actionButtons = `<button onclick="adjustStock('${table}', ${i.id}, '${currentVal}')" class="text-amber-600 hover:underline">Adjust</button>`;
-            }
+        let items = tableDataCache[table] || [];
+        if (search) items = items.filter(i => searchFields.some(f => String(i[f] || '').toLowerCase().includes(search)));
+        if (filterVal && filterField) items = items.filter(i => i[filterField] === filterVal);
 
-            if (table === 'chemicals') {
-                const cost = (i.unit_cost !== null && i.unit_cost !== undefined) ? `₱${Number(i.unit_cost).toLocaleString()}` : '—';
-                return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.classification || '—'}</td><td>${i.cas}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.grade}</td><td>${i.location}</td><td>${i.supplier || '—'}</td><td>${cost}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
-            }
-            if (table === 'materials') {
-                return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
-            }
-            if (table === 'equipment') {
-                const calCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.calibration_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_calibration_date)}</span></div>`;
-                const maintCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.maintenance_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_maintenance_date)}</span></div>`;
-                return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${calCell}</td><td>${maintCell}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
-            }
-            if (table === 'suppliers') {
-                return `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address || '—'}</td><td>${i.items_supplied || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
-            }
-            if (table === 'budgets') {
-                const remaining = (parseFloat(i.allocated_amount) || 0) - (parseFloat(i.spent_amount) || 0);
-                const remainingCls = remaining < 0 ? 'text-red-500 font-bold' : 'text-emerald-500';
-                return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td>${i.notes || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
-            }
-        }).join('');
-    }
-
-    // ------------------------------------------------------------------
-    // Lab Apparatus: rendered separately so its search box and category
-    // filter can re-render from the cached fetch without a round trip.
-    // ------------------------------------------------------------------
-    function apparatusRowHtml(i) {
-        let actionButtons = '';
-        if (currentUserRole === 'Admin') {
-            actionButtons = `<button onclick="editItem('apparatus', ${i.id})" class="text-blue-600 hover:underline">Edit</button>
-                             <button onclick="deleteItem('apparatus', ${i.id})" class="text-red-600 hover:underline">Delete</button>`;
-        } else {
-            actionButtons = `<button onclick="adjustStock('apparatus', ${i.id}, '${i.stock}')" class="text-amber-600 hover:underline">Adjust</button>`;
-        }
-        return `<tr><td class="py-3">${i.name}${lowStockBadgeBelow(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
-    }
-
-    function renderApparatusTable() {
-        const tbody = document.getElementById('apparatus-table-body');
-        if (!tbody) return;
-
-        const search = (document.getElementById('apparatus-search')?.value || '').trim().toLowerCase();
-        const categoryFilter = document.getElementById('apparatus-category-filter')?.value || '';
-
-        let items = tableDataCache.apparatus || [];
-        if (search) items = items.filter(i => (i.name || '').toLowerCase().includes(search));
-        if (categoryFilter) items = items.filter(i => i.category === categoryFilter);
-
-        const sorted = sortAlphabetically('apparatus', items);
+        const sorted = sortAlphabetically(table, items);
         tbody.innerHTML = sorted.length
-            ? sorted.map(apparatusRowHtml).join('')
-            : `<tr><td colspan="6" class="py-4 text-zinc-500 text-sm">No matching apparatus found.</td></tr>`;
+            ? sorted.map(ROW_HTML[table]).join('')
+            : `<tr><td colspan="${TABLE_COLSPAN[table]}" class="py-4 text-zinc-500 text-sm">No matching records found.</td></tr>`;
     }
 
-    const apparatusSearchInput = document.getElementById('apparatus-search');
-    const apparatusCategoryFilter = document.getElementById('apparatus-category-filter');
-    if (apparatusSearchInput) apparatusSearchInput.addEventListener('input', renderApparatusTable);
-    if (apparatusCategoryFilter) apparatusCategoryFilter.addEventListener('change', renderApparatusTable);
+    async function fetchAndRenderTable(table) {
+        const { data, error } = await supabaseClient.from(table).select('*');
+        if (error) { console.error(`Error fetching ${table}:`, error); return; }
+        tableDataCache[table] = data;
+        renderFilterableTable(table);
+    }
+
+    ['chemicals', 'materials', 'equipment', 'apparatus', 'suppliers', 'budgets'].forEach(table => {
+        const searchEl = document.getElementById(`${table}-search`);
+        const filterEl = document.getElementById(`${table}-filter`);
+        if (searchEl) searchEl.addEventListener('input', () => renderFilterableTable(table));
+        if (filterEl) filterEl.addEventListener('change', () => renderFilterableTable(table));
+    });
 
     window.deleteItem = async (table, id) => {
         if (currentUserRole !== 'Admin') return alert("Unauthorized.");

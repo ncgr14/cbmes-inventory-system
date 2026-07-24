@@ -27,10 +27,9 @@
             box-shadow: 0 0 0 1px #b91c1c;
         }
         table tbody tr:hover { background-color: rgba(63,63,70,0.35); }
-        #apparatus-table-body tr:nth-child(even) { background-color: rgba(255,255,255,0.03); }
-        #apparatus-table-body td { padding-top: 14px; padding-bottom: 14px; }
+        table tbody tr:nth-child(even) { background-color: rgba(255,255,255,0.03); }
         table thead th { font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.05em; white-space: nowrap; padding: 8px 12px 8px 0; text-align: left; }
-        table tbody td { padding: 10px 12px 10px 0; vertical-align: top; }
+        table tbody td { padding: 14px 12px 14px 0; vertical-align: top; }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
         ::-webkit-scrollbar-track { background: #09090b; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 6px; }
@@ -298,6 +297,16 @@
                                 <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer sm:col-span-2 lg:col-span-3">Save</button>
                             </form>
                         </div>
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <input type="text" id="chemicals-search" placeholder="Search by name…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="chemicals-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Classifications</option>
+                                <option>Acid</option><option>Base</option><option>Salt</option><option>Solvent</option>
+                                <option>Oxidizing Agent</option><option>Reducing Agent</option><option>Indicator</option>
+                                <option>Buffer</option><option>Nutrient Standard</option><option>Calibration Standard</option>
+                                <option>Gas Standard</option><option>Biological Reagent</option><option>Other</option>
+                            </select>
+                        </div>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
                                 <thead><tr class="border-b text-xs font-bold text-zinc-500 uppercase"><th class="min-w-[160px]">Name</th><th class="min-w-[110px]">Classification</th><th class="min-w-[90px]">CAS</th><th class="min-w-[80px]">Stock</th><th class="min-w-[60px]">Grade</th><th class="min-w-[100px]">Location</th><th class="min-w-[140px]">Supplier</th><th class="min-w-[90px]">Unit Cost</th><th class="min-w-[100px]">Actions</th></tr></thead>
@@ -334,6 +343,19 @@
                                 <input type="text" id="mat-supplier" placeholder="Supplier" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
                                 <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer sm:col-span-2 lg:col-span-3">Save</button>
                             </form>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <input type="text" id="materials-search" placeholder="Search by name…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="materials-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Categories</option>
+                                <option value="Polymer">Polymer</option>
+                                <option value="Metallic">Metallic</option>
+                                <option value="Membrane Material">Membrane Material</option>
+                                <option value="Nanomaterial">Nanomaterial</option>
+                                <option value="Culture Medium">Culture Medium</option>
+                                <option value="Analytical Equipment">Analytical Equipment</option>
+                                <option value="Other">Other</option>
+                            </select>
                         </div>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
@@ -384,6 +406,14 @@
                                 <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer sm:col-span-2 lg:col-span-3">Save</button>
                             </form>
                         </div>
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <input type="text" id="equipment-search" placeholder="Search by name or serial…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="equipment-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Classes</option>
+                                <option>Analytical</option><option>Heating/Drying</option><option>Measuring</option>
+                                <option>Safety</option><option>Separation</option><option>General</option>
+                            </select>
+                        </div>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
                                 <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px]">Name</th><th class="min-w-[90px]">Serial</th><th class="min-w-[100px]">Class</th><th class="min-w-[90px]">Status</th><th class="min-w-[260px]">Calibration</th><th class="min-w-[260px]">Maintenance</th><th class="min-w-[140px]">Supplier</th><th class="min-w-[100px]">Action</th></tr></thead>
@@ -421,7 +451,7 @@
                         </div>
                         <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
                             <input type="text" id="apparatus-search" placeholder="Search by name…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
-                            <select id="apparatus-category-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="apparatus-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
                                 <option value="">All Categories</option>
                                 <option value="Glassware">Glassware</option>
                                 <option value="Heating, Drying & Vacuum Equipment">Heating, Drying & Vacuum Equipment</option>
@@ -462,6 +492,17 @@
                                 <textarea id="sup-items" placeholder="Items Supplied" class="w-full border border-zinc-700 rounded-lg p-2 text-sm sm:col-span-2 lg:col-span-3"></textarea>
                                 <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer sm:col-span-2 lg:col-span-3">Save</button>
                             </form>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <input type="text" id="suppliers-search" placeholder="Search by company name…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="suppliers-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Categories</option>
+                                <option value="Chemicals">Chemicals</option>
+                                <option value="Lab Equipment">Lab Equipment</option>
+                                <option value="Lab Apparatus">Lab Apparatus</option>
+                                <option value="Materials">Materials</option>
+                                <option value="General">General</option>
+                            </select>
                         </div>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
@@ -522,6 +563,16 @@
                                 <textarea id="bud-notes" placeholder="Notes" class="w-full border border-zinc-700 rounded-lg p-2 text-sm sm:col-span-2 lg:col-span-3"></textarea>
                                 <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer sm:col-span-2 lg:col-span-3">Save</button>
                             </form>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <input type="text" id="budgets-search" placeholder="Search by category or notes…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="budgets-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Categories</option>
+                                <option value="Chemicals">Chemicals</option>
+                                <option value="Lab Equipment">Lab Equipment</option>
+                                <option value="Lab Apparatus">Lab Apparatus</option>
+                                <option value="Materials">Materials</option>
+                            </select>
                         </div>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
