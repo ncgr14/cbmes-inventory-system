@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let initialHashHandled = false;
     let isPasswordSetupFlow = false;
     let editState = { chemicals: null, materials: null, equipment: null, apparatus: null, suppliers: null, budgets: null };
+    let tableDataCache = {};
 
     // Tables that carry a stock/threshold pair and should show a LOW STOCK badge
     const STOCK_TABLES = new Set(['chemicals', 'materials', 'apparatus']);
@@ -224,7 +225,9 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('invite-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         const msg = document.getElementById('invite-message');
-        const name = document.getElementById('invite-name').value;
+        const firstName = document.getElementById('invite-first-name').value;
+        const lastName = document.getElementById('invite-last-name').value;
+        const studentNum = document.getElementById('invite-student-num').value;
         const email = document.getElementById('invite-email').value;
         const role = document.getElementById('invite-role').value;
 
@@ -233,7 +236,7 @@ document.addEventListener('DOMContentLoaded', () => {
         msg.innerText = "Sending invite...";
 
         const { data, error } = await supabaseClient.functions.invoke('invite-user', {
-            body: { email, name, role }
+            body: { email, first_name: firstName, last_name: lastName, student_num: studentNum, role }
         });
 
         if (error) {
@@ -268,18 +271,18 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchAndRenderPendingInvites() {
         const tbody = document.getElementById('pending-invites-table-body');
         if (!tbody) return;
-        tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-zinc-500 text-sm">Loading…</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-zinc-500 text-sm">Loading…</td></tr>`;
 
         const { data, error } = await supabaseClient.functions.invoke('manage-invites', { body: { action: 'list' } });
 
         if (error || !data || !data.invites) {
-            tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-red-500 text-sm">Failed to load invites. Check Edge Function setup.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-red-500 text-sm">Failed to load invites. Check Edge Function setup.</td></tr>`;
             console.error(error);
             return;
         }
 
         if (data.invites.length === 0) {
-            tbody.innerHTML = `<tr><td colspan="6" class="py-4 text-zinc-500 text-sm">No invitations sent yet.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-zinc-500 text-sm">No invitations sent yet.</td></tr>`;
             return;
         }
 
@@ -296,6 +299,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             return `<tr>
                 <td class="py-3">${inv.name}</td>
+                <td>${inv.student_number || '—'}</td>
                 <td>${inv.email}</td>
                 <td>${inv.role}</td>
                 <td>${statusCell}</td>
@@ -358,6 +362,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function lowStockBadge(item) {
         return isLowStock(item) ? ' <span class="inline-block bg-red-500/15 text-red-400 border border-red-900 text-[10px] font-bold px-2 py-0.5 rounded-full ml-1">LOW STOCK</span>' : '';
+    }
+
+    // Like lowStockBadge, but rendered on its own line below the item name
+    // rather than crammed inline next to it (used where row readability matters most).
+    function lowStockBadgeBelow(item) {
+        return isLowStock(item) ? '<div class="mt-1"><span class="inline-block bg-red-500/15 text-red-400 border border-red-900 text-[10px] font-bold px-2 py-0.5 rounded-full">LOW STOCK</span></div>' : '';
     }
 
     function dueBadge(dateStr) {
@@ -503,6 +513,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const { data, error } = await supabaseClient.from(table).select('*');
         if (error) { console.error(`Error fetching ${table}:`, error); return; }
 
+        tableDataCache[table] = data;
+
+        if (table === 'apparatus') { renderApparatusTable(); return; }
+
         const tbody = document.getElementById(`${table}-table-body`);
         if (!tbody) return;
 
@@ -530,9 +544,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const maintCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.maintenance_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_maintenance_date)}</span></div>`;
                 return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${calCell}</td><td>${maintCell}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
-            if (table === 'apparatus') {
-                return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
-            }
             if (table === 'suppliers') {
                 return `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address || '—'}</td><td>${i.items_supplied || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
             }
@@ -543,6 +554,43 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }).join('');
     }
+
+    // ------------------------------------------------------------------
+    // Lab Apparatus: rendered separately so its search box and category
+    // filter can re-render from the cached fetch without a round trip.
+    // ------------------------------------------------------------------
+    function apparatusRowHtml(i) {
+        let actionButtons = '';
+        if (currentUserRole === 'Admin') {
+            actionButtons = `<button onclick="editItem('apparatus', ${i.id})" class="text-blue-600 hover:underline">Edit</button>
+                             <button onclick="deleteItem('apparatus', ${i.id})" class="text-red-600 hover:underline">Delete</button>`;
+        } else {
+            actionButtons = `<button onclick="adjustStock('apparatus', ${i.id}, '${i.stock}')" class="text-amber-600 hover:underline">Adjust</button>`;
+        }
+        return `<tr><td class="py-3">${i.name}${lowStockBadgeBelow(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtons}</td></tr>`;
+    }
+
+    function renderApparatusTable() {
+        const tbody = document.getElementById('apparatus-table-body');
+        if (!tbody) return;
+
+        const search = (document.getElementById('apparatus-search')?.value || '').trim().toLowerCase();
+        const categoryFilter = document.getElementById('apparatus-category-filter')?.value || '';
+
+        let items = tableDataCache.apparatus || [];
+        if (search) items = items.filter(i => (i.name || '').toLowerCase().includes(search));
+        if (categoryFilter) items = items.filter(i => i.category === categoryFilter);
+
+        const sorted = sortAlphabetically('apparatus', items);
+        tbody.innerHTML = sorted.length
+            ? sorted.map(apparatusRowHtml).join('')
+            : `<tr><td colspan="6" class="py-4 text-zinc-500 text-sm">No matching apparatus found.</td></tr>`;
+    }
+
+    const apparatusSearchInput = document.getElementById('apparatus-search');
+    const apparatusCategoryFilter = document.getElementById('apparatus-category-filter');
+    if (apparatusSearchInput) apparatusSearchInput.addEventListener('input', renderApparatusTable);
+    if (apparatusCategoryFilter) apparatusCategoryFilter.addEventListener('change', renderApparatusTable);
 
     window.deleteItem = async (table, id) => {
         if (currentUserRole !== 'Admin') return alert("Unauthorized.");
@@ -686,15 +734,25 @@ document.addEventListener('DOMContentLoaded', () => {
         supplier: document.getElementById('eq-supplier').value
     }));
 
-    document.getElementById('apparatus-form').addEventListener('submit', (e) => handleFormSubmit(e, 'apparatus', {
-        name: document.getElementById('app-name').value,
-        category: document.getElementById('app-category').value,
-        stock: document.getElementById('app-stock').value,
-        unit: document.getElementById('app-unit').value,
-        low_stock_threshold: document.getElementById('app-threshold').value,
-        location: document.getElementById('app-location').value,
-        supplier: document.getElementById('app-supplier').value
-    }));
+    document.getElementById('apparatus-form').addEventListener('submit', (e) => {
+        const name = document.getElementById('app-name').value.trim();
+        if (!editState.apparatus) {
+            const dup = (tableDataCache.apparatus || []).find(i => (i.name || '').trim().toLowerCase() === name.toLowerCase());
+            if (dup && !confirm(`An apparatus item named "${dup.name}" already exists in the list. Add it anyway?`)) {
+                e.preventDefault();
+                return;
+            }
+        }
+        handleFormSubmit(e, 'apparatus', {
+            name: document.getElementById('app-name').value,
+            category: document.getElementById('app-category').value,
+            stock: document.getElementById('app-stock').value,
+            unit: document.getElementById('app-unit').value,
+            low_stock_threshold: document.getElementById('app-threshold').value,
+            location: document.getElementById('app-location').value,
+            supplier: document.getElementById('app-supplier').value
+        });
+    });
 
     document.getElementById('supplier-form').addEventListener('submit', (e) => handleFormSubmit(e, 'suppliers', {
         name: document.getElementById('sup-name').value,

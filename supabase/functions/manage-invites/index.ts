@@ -52,6 +52,7 @@ export default {
           return {
             id: u.id,
             name: u.user_metadata?.full_name || "—",
+            student_number: u.user_metadata?.student_number || "—",
             email: u.email,
             role: u.user_metadata?.role || "—",
             invited_at: u.invited_at,

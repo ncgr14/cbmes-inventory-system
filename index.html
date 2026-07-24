@@ -27,6 +27,8 @@
             box-shadow: 0 0 0 1px #b91c1c;
         }
         table tbody tr:hover { background-color: rgba(63,63,70,0.35); }
+        #apparatus-table-body tr:nth-child(even) { background-color: rgba(255,255,255,0.03); }
+        #apparatus-table-body td { padding-top: 14px; padding-bottom: 14px; }
         table thead th { font-family: 'JetBrains Mono', ui-monospace, monospace; letter-spacing: 0.05em; white-space: nowrap; padding: 8px 12px 8px 0; text-align: left; }
         table tbody td { padding: 10px 12px 10px 0; vertical-align: top; }
         ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -234,7 +236,11 @@
                     <div class="max-w-lg mx-auto bg-zinc-800 p-6 rounded-xl border border-zinc-800">
                         <h3 class="text-lg font-bold text-zinc-100 mb-4">Invite New User</h3>
                         <form id="invite-form" class="space-y-4">
-                            <input type="text" id="invite-name" placeholder="Full Name" required class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
+                            <div class="flex space-x-2">
+                                <input type="text" id="invite-first-name" placeholder="First Name" required class="w-1/2 border border-zinc-700 rounded-lg p-2 text-sm">
+                                <input type="text" id="invite-last-name" placeholder="Last Name" required class="w-1/2 border border-zinc-700 rounded-lg p-2 text-sm">
+                            </div>
+                            <input type="text" id="invite-student-num" placeholder="Student Number" required class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
                             <input type="email" id="invite-email" placeholder="Email Address" required class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
                             <select id="invite-role" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
                                 <option value="Student">Student</option>
@@ -253,8 +259,8 @@
                         <p class="text-zinc-500 text-xs mb-4">Everyone who's been sent an invite link, whether they've accepted it yet or not. Unaccepted invite links expire after the window shown below.</p>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px]">Name</th><th class="min-w-[200px]">Email</th><th class="min-w-[100px]">Role</th><th class="min-w-[130px]">Status</th><th class="min-w-[180px]">Expires In</th><th class="min-w-[90px] text-right">Action</th></tr></thead>
-                                <tbody id="pending-invites-table-body"><tr><td colspan="6" class="py-4 text-zinc-500 text-sm">Loading…</td></tr></tbody>
+                                <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px]">Name</th><th class="min-w-[110px]">Student #</th><th class="min-w-[200px]">Email</th><th class="min-w-[100px]">Role</th><th class="min-w-[130px]">Status</th><th class="min-w-[180px]">Expires In</th><th class="min-w-[90px] text-right">Action</th></tr></thead>
+                                <tbody id="pending-invites-table-body"><tr><td colspan="7" class="py-4 text-zinc-500 text-sm">Loading…</td></tr></tbody>
                             </table>
                         </div>
                     </div>
@@ -412,6 +418,16 @@
                                 <input type="text" id="app-supplier" placeholder="Supplier" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
                                 <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer sm:col-span-2 lg:col-span-3">Save</button>
                             </form>
+                        </div>
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <input type="text" id="apparatus-search" placeholder="Search by name…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="apparatus-category-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Categories</option>
+                                <option value="Glassware">Glassware</option>
+                                <option value="Heating, Drying & Vacuum Equipment">Heating, Drying & Vacuum Equipment</option>
+                                <option value="Consumables & Filter Media">Consumables & Filter Media</option>
+                                <option value="Analytical Accessories">Analytical Accessories</option>
+                            </select>
                         </div>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
