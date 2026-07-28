@@ -203,6 +203,30 @@
                         </button>
                     </div>
                 </div>
+
+                <div class="bg-zinc-900 rounded-xl shadow-sm hover:shadow-md transition-all border border-zinc-800 border-l-4 border-l-cyan-600 flex flex-col justify-between overflow-hidden">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold text-zinc-100 mb-2">Time Log</h3>
+                        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Time in/out of the lab and record what equipment and chemicals were used.</p>
+                    </div>
+                    <div class="p-4 bg-zinc-800 border-t border-zinc-800">
+                        <button data-target="timelog" class="nav-btn w-full bg-zinc-900 hover:bg-red-800 text-red-500 hover:text-white border border-zinc-700 hover:border-red-700 font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+                            <span>Enter Division</span><span>→</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-zinc-900 rounded-xl shadow-sm hover:shadow-md transition-all border border-zinc-800 border-l-4 border-l-orange-600 flex flex-col justify-between overflow-hidden">
+                    <div class="p-6">
+                        <h3 class="text-xl font-bold text-zinc-100 mb-2">Item Requests</h3>
+                        <p class="text-zinc-400 text-sm leading-relaxed mb-4">Request new chemicals or lab equipment that the department should stock.</p>
+                    </div>
+                    <div class="p-4 bg-zinc-800 border-t border-zinc-800">
+                        <button data-target="requests" class="nav-btn w-full bg-zinc-900 hover:bg-red-800 text-red-500 hover:text-white border border-zinc-700 hover:border-red-700 font-semibold text-sm py-2 px-4 rounded-lg transition-colors flex items-center justify-center space-x-2 cursor-pointer">
+                            <span>Enter Division</span><span>→</span>
+                        </button>
+                    </div>
+                </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
@@ -584,6 +608,103 @@
                     <div class="flex justify-end space-x-2 mt-3">
                         <button data-export-csv="budgets" class="export-btn text-xs font-medium px-2.5 py-1 rounded-md border border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer">Export CSV Report</button>
                         <button data-export-pdf="budgets" class="export-btn text-xs font-medium px-2.5 py-1 rounded-md border border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200 transition-colors cursor-pointer">Export PDF Report</button>
+                    </div>
+                </div>
+
+                <div id="timelog-workspace" class="hidden">
+                    <div id="timelog-student-view" class="space-y-6">
+                        <div id="timelog-inactive" class="bg-zinc-800 p-6 rounded-xl border border-zinc-800 text-center">
+                            <p class="text-zinc-400 text-sm mb-4">You are not currently timed in.</p>
+                            <button id="time-in-btn" type="button" class="bg-red-800 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Time In</button>
+                        </div>
+
+                        <div id="timelog-active" class="hidden bg-zinc-800 p-6 rounded-xl border border-zinc-800">
+                            <div class="flex items-center justify-between mb-4 flex-wrap gap-3">
+                                <div>
+                                    <h3 class="text-lg font-bold text-zinc-100">Session in Progress</h3>
+                                    <p class="text-zinc-500 text-xs">Started at <span id="session-start-time"></span> — <span id="session-duration" class="text-zinc-300 font-semibold"></span> elapsed</p>
+                                </div>
+                                <button id="time-out-btn" type="button" class="bg-red-800 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Time Out</button>
+                            </div>
+
+                            <h4 class="text-xs font-bold text-zinc-500 uppercase mb-2">Add Equipment / Chemicals Used</h4>
+                            <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end mb-4">
+                                <div>
+                                    <label class="text-xs font-bold text-zinc-500 uppercase block mb-1">Type</label>
+                                    <select id="usage-kind" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
+                                        <option value="chemical">Chemical</option>
+                                        <option value="equipment">Equipment</option>
+                                    </select>
+                                </div>
+                                <div class="sm:col-span-2">
+                                    <label class="text-xs font-bold text-zinc-500 uppercase block mb-1">Item</label>
+                                    <select id="usage-item" class="w-full border border-zinc-700 rounded-lg p-2 text-sm"><option value="">Select item…</option></select>
+                                </div>
+                                <div id="usage-qty-wrap">
+                                    <label class="text-xs font-bold text-zinc-500 uppercase block mb-1">Amount Used</label>
+                                    <input type="number" step="0.01" id="usage-qty" placeholder="e.g. 50" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
+                                </div>
+                                <button id="add-usage-item-btn" type="button" class="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 font-semibold p-2 rounded-lg transition-colors cursor-pointer sm:col-span-4">+ Add to Session</button>
+                            </div>
+
+                            <div class="table-container overflow-x-auto">
+                                <table class="w-full text-left">
+                                    <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[90px]">Type</th><th class="min-w-[200px]">Item</th><th class="min-w-[120px]">Amount Used</th><th class="min-w-[80px]">Remove</th></tr></thead>
+                                    <tbody id="usage-pending-body"><tr><td colspan="4" class="py-4 text-zinc-500 text-sm">Nothing added yet.</td></tr></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="timelog-admin-view" class="hidden">
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between mb-4">
+                            <input type="text" id="timelog-search" placeholder="Search by student name…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="timelog-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Sessions</option>
+                                <option value="active">Active</option>
+                                <option value="completed">Completed</option>
+                            </select>
+                        </div>
+                        <div class="table-container overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px]">Student</th><th class="min-w-[110px]">Student #</th><th class="min-w-[140px]">Time In</th><th class="min-w-[140px]">Time Out</th><th class="min-w-[100px]">Duration</th><th class="min-w-[220px]">Equipment Used</th><th class="min-w-[260px]">Chemicals Used</th></tr></thead>
+                                <tbody id="timelog-table-body"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="requests-workspace" class="hidden">
+                    <div class="space-y-6">
+                        <div class="bg-zinc-800 p-6 rounded-xl border border-zinc-800">
+                            <h3 class="text-lg font-bold text-zinc-100 mb-4">Request New Chemical or Equipment</h3>
+                            <form id="request-form" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                                <select id="req-category" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
+                                    <option value="Chemical">Chemical</option>
+                                    <option value="Equipment">Equipment</option>
+                                </select>
+                                <input type="text" id="req-item-name" placeholder="Item Name" required class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
+                                <input type="text" id="req-quantity" placeholder="Quantity Needed (e.g. 5 L, 2 units)" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
+                                <textarea id="req-reason" placeholder="Reason / Justification" class="w-full border border-zinc-700 rounded-lg p-2 text-sm sm:col-span-2 lg:col-span-3"></textarea>
+                                <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer sm:col-span-2 lg:col-span-3">Submit Request</button>
+                            </form>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
+                            <input type="text" id="requests-search" placeholder="Search by item name…" class="w-full sm:max-w-xs border border-zinc-700 rounded-lg p-2 text-sm">
+                            <select id="requests-filter" class="w-full sm:w-auto border border-zinc-700 rounded-lg p-2 text-sm">
+                                <option value="">All Statuses</option>
+                                <option value="Pending">Pending</option>
+                                <option value="Approved">Approved</option>
+                                <option value="Denied">Denied</option>
+                            </select>
+                        </div>
+                        <div class="table-container overflow-x-auto">
+                            <table class="w-full text-left">
+                                <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px]">Requested By</th><th class="min-w-[100px]">Category</th><th class="min-w-[180px]">Item</th><th class="min-w-[120px]">Quantity</th><th class="min-w-[200px]">Reason</th><th class="min-w-[110px]">Status</th><th class="min-w-[140px] text-right">Action</th></tr></thead>
+                                <tbody id="requests-table-body"></tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
 

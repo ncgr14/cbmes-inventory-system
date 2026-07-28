@@ -32,14 +32,13 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentUserRole = 'Student';
     let currentUserName = 'User';
     let currentUserId = null;
+    let currentStudentNumber = '—';
     let justLoggedIn = false;
     let initialHashHandled = false;
     let isPasswordSetupFlow = false;
     let editState = { chemicals: null, materials: null, equipment: null, apparatus: null, suppliers: null, budgets: null };
     let tableDataCache = {};
 
-    // Tables that carry a stock/threshold pair and should show a LOW STOCK badge
-    const STOCK_TABLES = new Set(['chemicals', 'materials', 'apparatus']);
     // How many days ahead counts as "due soon" for calibration/maintenance
     const DUE_SOON_DAYS = 30;
 
@@ -102,7 +101,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const userName = session.user.user_metadata?.full_name || 'User';
             currentUserName = userName;
             currentUserId = session.user.id;
-            currentUserRole = session.user.user_metadata?.role || 'Student'; 
+            currentUserRole = session.user.user_metadata?.role || 'Student';
+            currentStudentNumber = session.user.user_metadata?.student_number || '—';
 
             // Only transition away from the login screen once. Subsequent calls to
             // handleSession happen in the background (token refresh, tab refocus)
@@ -161,6 +161,7 @@ document.addEventListener('DOMContentLoaded', () => {
             initialHashHandled = false;
             currentUserName = 'User';
             currentUserId = null;
+            currentStudentNumber = '—';
         }
     }
 
@@ -337,7 +338,9 @@ document.addEventListener('DOMContentLoaded', () => {
         apparatus: document.getElementById('apparatus-workspace'),
         suppliers: document.getElementById('suppliers-workspace'),
         budget: document.getElementById('budget-workspace'),
-        'admin-settings': document.getElementById('admin-settings-workspace')
+        'admin-settings': document.getElementById('admin-settings-workspace'),
+        timelog: document.getElementById('timelog-workspace'),
+        requests: document.getElementById('requests-workspace')
     };
 
     const divisionData = {
@@ -347,7 +350,9 @@ document.addEventListener('DOMContentLoaded', () => {
         apparatus: { title: "Lab Apparatus Division", description: "Glassware, ovens/furnaces/vacuum equipment, filter paper and other consumables — with low-stock alerts." },
         suppliers: { title: "Suppliers Directory", description: "Contact details for vendors of chemicals, equipment, apparatus, and materials." },
         budget: { title: "Annual Budget Tracker", description: "Allocated vs. spent budget per category, per fiscal year." },
-        'admin-settings': { title: "Portal Administration", description: "Manage user access and send secure email invitations to new students or faculty members." }
+        'admin-settings': { title: "Portal Administration", description: "Manage user access and send secure email invitations to new students or faculty members." },
+        timelog: { title: "Lab Time Log", description: "Time in and out of the lab, and record what equipment and chemicals were used during each session." },
+        requests: { title: "Item Requests", description: "Request new chemicals or lab equipment that the department should stock." }
     };
 
     // ------------------------------------------------------------------
@@ -508,10 +513,6 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<button onclick="editItem('${table}', ${i.id})" class="text-blue-600 hover:underline">Edit</button>
                     <button onclick="deleteItem('${table}', ${i.id})" class="text-red-600 hover:underline">Delete</button>`;
         }
-        if (STOCK_TABLES.has(table) || table === 'equipment') {
-            const currentVal = table === 'equipment' ? i.status : i.stock;
-            return `<button onclick="adjustStock('${table}', ${i.id}, '${currentVal}')" class="text-amber-600 hover:underline">Adjust</button>`;
-        }
         return '';
     }
 
@@ -550,10 +551,10 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     const TABLE_COLSPAN = { chemicals: 9, materials: 5, equipment: 8, apparatus: 6, suppliers: 8, budgets: 7 };
 
-    function renderFilterableTable(table) {
-        const tbody = document.getElementById(`${table}-table-body`);
-        if (!tbody) return;
-
+    // Applies whatever search text + category filter is currently set in a
+    // division's toolbar to its cached data. Shared by on-screen rendering
+    // and CSV/PDF export, so exporting only includes the selected category.
+    function getFilteredItems(table) {
         const search = (document.getElementById(`${table}-search`)?.value || '').trim().toLowerCase();
         const filterVal = document.getElementById(`${table}-filter`)?.value || '';
         const filterField = FILTER_FIELD[table];
@@ -563,7 +564,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (search) items = items.filter(i => searchFields.some(f => String(i[f] || '').toLowerCase().includes(search)));
         if (filterVal && filterField) items = items.filter(i => i[filterField] === filterVal);
 
-        const sorted = sortAlphabetically(table, items);
+        return sortAlphabetically(table, items);
+    }
+
+    function renderFilterableTable(table) {
+        const tbody = document.getElementById(`${table}-table-body`);
+        if (!tbody) return;
+
+        const sorted = getFilteredItems(table);
         tbody.innerHTML = sorted.length
             ? sorted.map(ROW_HTML[table]).join('')
             : `<tr><td colspan="${TABLE_COLSPAN[table]}" class="py-4 text-zinc-500 text-sm">No matching records found.</td></tr>`;
@@ -655,18 +663,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('bud-spent').value = data.spent_amount || 0;
             document.getElementById('bud-notes').value = data.notes || '';
             document.querySelector('#budget-form button[type="submit"]').innerText = "Update";
-        }
-    };
-
-    window.adjustStock = async (table, id, currentVal) => {
-        const message = table === 'equipment' ? `Current Status is: ${currentVal}\nEnter new status (Available / In Use / Maintenance):` : `Current Stock is: ${currentVal}\nEnter new amount after taking/adding:`;
-        const newVal = prompt(message, currentVal);
-        
-        if (newVal !== null && newVal !== currentVal) {
-            const updateField = table === 'equipment' ? { status: newVal } : { stock: newVal };
-            const { error } = await supabaseClient.from(table).update(updateField).eq('id', id);
-            if (error) alert(`Failed to update: ${error.message}`);
-            else { fetchAndRenderTable(table); refreshAlerts(false); }
         }
     };
 
@@ -832,6 +828,321 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ------------------------------------------------------------------
+    // Time Log: students time in/out of the lab and record what equipment
+    // and chemicals they used (chemical amounts are deducted from stock
+    // immediately). Admins/professors see every student's session history.
+    // ------------------------------------------------------------------
+    let activeSession = null;
+    let usageItemCache = {};
+    let sessionTimerInterval = null;
+    let timeLogCache = [];
+
+    function stopSessionTimer() {
+        if (sessionTimerInterval) { clearInterval(sessionTimerInterval); sessionTimerInterval = null; }
+    }
+
+    function formatDuration(ms) {
+        const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+        const h = Math.floor(totalSeconds / 3600);
+        const m = Math.floor((totalSeconds % 3600) / 60);
+        const s = totalSeconds % 60;
+        return h > 0 ? `${h}h ${m}m` : `${m}m ${s}s`;
+    }
+
+    function startSessionTimer() {
+        stopSessionTimer();
+        const tick = () => {
+            if (!activeSession) return;
+            const el = document.getElementById('session-duration');
+            if (el) el.innerText = formatDuration(Date.now() - new Date(activeSession.time_in).getTime());
+        };
+        tick();
+        sessionTimerInterval = setInterval(tick, 1000);
+    }
+
+    async function populateUsageItemOptions() {
+        const kind = document.getElementById('usage-kind').value;
+        const table = kind === 'chemical' ? 'chemicals' : 'equipment';
+        const { data, error } = await supabaseClient.from(table).select('id, name, stock, unit');
+        const select = document.getElementById('usage-item');
+        usageItemCache = {};
+        if (error || !data) { select.innerHTML = '<option value="">Select item…</option>'; return; }
+        const sorted = [...data].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
+        sorted.forEach(item => { usageItemCache[item.id] = item; });
+        select.innerHTML = '<option value="">Select item…</option>' + sorted.map(item => kind === 'chemical'
+            ? `<option value="${item.id}">${item.name} (currently ${item.stock} ${item.unit || ''})</option>`
+            : `<option value="${item.id}">${item.name}</option>`
+        ).join('');
+        document.getElementById('usage-qty-wrap').classList.toggle('hidden', kind !== 'chemical');
+    }
+
+    async function renderSessionItems() {
+        const tbody = document.getElementById('usage-pending-body');
+        if (!activeSession || !tbody) return;
+        const { data, error } = await supabaseClient.from('usage_session_items').select('*').eq('session_id', activeSession.id).order('created_at', { ascending: true });
+        if (error || !data || data.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="4" class="py-4 text-zinc-500 text-sm">Nothing added yet.</td></tr>`;
+            return;
+        }
+        tbody.innerHTML = data.map(row => `<tr>
+            <td class="py-3">${row.kind === 'chemical' ? 'Chemical' : 'Equipment'}</td>
+            <td>${row.item_name}</td>
+            <td>${row.quantity_used !== null ? `${row.quantity_used} ${row.unit || ''}` : '—'}</td>
+            <td><button onclick="removeUsageItem(${row.id})" class="text-red-600 hover:underline">Remove</button></td>
+        </tr>`).join('');
+    }
+
+    window.removeUsageItem = async (id) => {
+        if (!confirm('Remove this item from the session? Any deducted chemical stock will be restored.')) return;
+        const { data: row } = await supabaseClient.from('usage_session_items').select('*').eq('id', id).single();
+        if (row && row.kind === 'chemical' && row.quantity_used) {
+            const { data: chem } = await supabaseClient.from('chemicals').select('stock').eq('id', row.item_id).single();
+            if (chem) {
+                const restored = (parseFloat(chem.stock) || 0) + parseFloat(row.quantity_used);
+                await supabaseClient.from('chemicals').update({ stock: restored }).eq('id', row.item_id);
+                fetchAndRenderTable('chemicals');
+            }
+        }
+        await supabaseClient.from('usage_session_items').delete().eq('id', id);
+        renderSessionItems();
+    };
+
+    const usageKindSelect = document.getElementById('usage-kind');
+    if (usageKindSelect) usageKindSelect.addEventListener('change', populateUsageItemOptions);
+
+    const addUsageItemBtn = document.getElementById('add-usage-item-btn');
+    if (addUsageItemBtn) addUsageItemBtn.addEventListener('click', async () => {
+        if (!activeSession) return;
+        const kind = document.getElementById('usage-kind').value;
+        const itemId = document.getElementById('usage-item').value;
+        if (!itemId) { alert('Please select an item.'); return; }
+        const item = usageItemCache[itemId];
+
+        let quantityUsed = null;
+        if (kind === 'chemical') {
+            quantityUsed = parseFloat(document.getElementById('usage-qty').value);
+            if (isNaN(quantityUsed) || quantityUsed <= 0) { alert('Please enter a valid amount used.'); return; }
+            const currentStock = parseFloat(item.stock) || 0;
+            if (quantityUsed > currentStock) { alert(`Not enough stock: only ${currentStock} ${item.unit || ''} of ${item.name} available.`); return; }
+            const { error: stockError } = await supabaseClient.from('chemicals').update({ stock: currentStock - quantityUsed }).eq('id', itemId);
+            if (stockError) { alert(`Failed to deduct stock: ${stockError.message}`); return; }
+            fetchAndRenderTable('chemicals');
+            refreshAlerts(false);
+        }
+
+        const { error } = await supabaseClient.from('usage_session_items').insert([{
+            session_id: activeSession.id,
+            kind,
+            item_id: itemId,
+            item_name: item.name,
+            quantity_used: quantityUsed,
+            unit: kind === 'chemical' ? (item.unit || null) : null
+        }]);
+        if (error) { alert(`Failed to log item: ${error.message}`); return; }
+
+        document.getElementById('usage-item').value = '';
+        document.getElementById('usage-qty').value = '';
+        renderSessionItems();
+    });
+
+    const timeInBtn = document.getElementById('time-in-btn');
+    if (timeInBtn) timeInBtn.addEventListener('click', async () => {
+        const { data, error } = await supabaseClient.from('usage_sessions').insert([{
+            student_name: currentUserName,
+            student_number: currentStudentNumber
+        }]).select().single();
+        if (error) { alert(`Failed to time in: ${error.message}`); return; }
+        activeSession = data;
+        document.getElementById('timelog-inactive').classList.add('hidden');
+        document.getElementById('timelog-active').classList.remove('hidden');
+        document.getElementById('session-start-time').innerText = new Date(activeSession.time_in).toLocaleString();
+        startSessionTimer();
+        await populateUsageItemOptions();
+        await renderSessionItems();
+    });
+
+    const timeOutBtn = document.getElementById('time-out-btn');
+    if (timeOutBtn) timeOutBtn.addEventListener('click', async () => {
+        if (!activeSession) return;
+        if (!confirm("Time out now? Make sure you've added everything you used during this session.")) return;
+        const { error } = await supabaseClient.from('usage_sessions').update({ time_out: new Date().toISOString() }).eq('id', activeSession.id);
+        if (error) { alert(`Failed to time out: ${error.message}`); return; }
+        stopSessionTimer();
+        activeSession = null;
+        document.getElementById('timelog-active').classList.add('hidden');
+        document.getElementById('timelog-inactive').classList.remove('hidden');
+    });
+
+    async function renderTimeLogAdmin() {
+        const tbody = document.getElementById('timelog-table-body');
+        tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-zinc-500 text-sm">Loading…</td></tr>`;
+        const { data, error } = await supabaseClient.from('usage_sessions').select('*, usage_session_items(*)').order('time_in', { ascending: false });
+        if (error || !data) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-red-500 text-sm">Failed to load session log.</td></tr>`;
+            console.error(error);
+            return;
+        }
+        timeLogCache = data;
+        renderTimeLogRows();
+    }
+
+    function renderTimeLogRows() {
+        const tbody = document.getElementById('timelog-table-body');
+        if (!tbody) return;
+        const search = (document.getElementById('timelog-search')?.value || '').trim().toLowerCase();
+        const statusFilter = document.getElementById('timelog-filter')?.value || '';
+
+        let rows = timeLogCache;
+        if (search) rows = rows.filter(s => (s.student_name || '').toLowerCase().includes(search));
+        if (statusFilter === 'active') rows = rows.filter(s => !s.time_out);
+        if (statusFilter === 'completed') rows = rows.filter(s => !!s.time_out);
+
+        if (rows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-zinc-500 text-sm">No matching sessions found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rows.map(s => {
+            const items = s.usage_session_items || [];
+            const equipmentUsed = items.filter(i => i.kind === 'equipment').map(i => i.item_name).join(', ') || '—';
+            const chemicalsUsed = items.filter(i => i.kind === 'chemical').map(i => `${i.item_name} (${i.quantity_used} ${i.unit || ''})`).join(', ') || '—';
+            const duration = s.time_out ? formatDuration(new Date(s.time_out) - new Date(s.time_in)) : `<span class="text-emerald-400 font-semibold">In progress</span>`;
+            return `<tr>
+                <td class="py-3">${s.student_name || '—'}</td>
+                <td>${s.student_number || '—'}</td>
+                <td>${new Date(s.time_in).toLocaleString()}</td>
+                <td>${s.time_out ? new Date(s.time_out).toLocaleString() : '—'}</td>
+                <td>${duration}</td>
+                <td>${equipmentUsed}</td>
+                <td>${chemicalsUsed}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    document.getElementById('timelog-search')?.addEventListener('input', renderTimeLogRows);
+    document.getElementById('timelog-filter')?.addEventListener('change', renderTimeLogRows);
+
+    async function loadTimeLog() {
+        const studentView = document.getElementById('timelog-student-view');
+        const adminView = document.getElementById('timelog-admin-view');
+        if (currentUserRole === 'Admin') {
+            studentView.classList.add('hidden');
+            adminView.classList.remove('hidden');
+            renderTimeLogAdmin();
+            return;
+        }
+        adminView.classList.add('hidden');
+        studentView.classList.remove('hidden');
+        const { data, error } = await supabaseClient.from('usage_sessions').select('*').is('time_out', null).order('time_in', { ascending: false }).limit(1);
+        if (!error && data && data.length > 0) {
+            activeSession = data[0];
+            document.getElementById('timelog-inactive').classList.add('hidden');
+            document.getElementById('timelog-active').classList.remove('hidden');
+            document.getElementById('session-start-time').innerText = new Date(activeSession.time_in).toLocaleString();
+            startSessionTimer();
+            await populateUsageItemOptions();
+            await renderSessionItems();
+        } else {
+            activeSession = null;
+            document.getElementById('timelog-active').classList.add('hidden');
+            document.getElementById('timelog-inactive').classList.remove('hidden');
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // Item Requests: anyone can ask for a new chemical or piece of
+    // equipment to be stocked; admins approve/deny/delete the requests.
+    // ------------------------------------------------------------------
+    let requestsCache = [];
+
+    const requestForm = document.getElementById('request-form');
+    if (requestForm) requestForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const { error } = await supabaseClient.from('item_requests').insert([{
+            requester_name: currentUserName,
+            category: document.getElementById('req-category').value,
+            item_name: document.getElementById('req-item-name').value,
+            quantity: document.getElementById('req-quantity').value,
+            reason: document.getElementById('req-reason').value
+        }]);
+        if (error) { alert(`Failed to submit request: ${error.message}`); return; }
+        requestForm.reset();
+        loadRequests();
+    });
+
+    function requestStatusBadge(status) {
+        const cls = status === 'Approved' ? 'bg-emerald-500/15 text-emerald-400 border-emerald-900'
+            : status === 'Denied' ? 'bg-red-500/15 text-red-400 border-red-900'
+            : 'bg-amber-500/15 text-amber-400 border-amber-900';
+        return `<span class="inline-block ${cls} border text-[11px] font-semibold px-2 py-0.5 rounded-full">${status}</span>`;
+    }
+
+    function renderRequestRows() {
+        const tbody = document.getElementById('requests-table-body');
+        if (!tbody) return;
+        const search = (document.getElementById('requests-search')?.value || '').trim().toLowerCase();
+        const statusFilter = document.getElementById('requests-filter')?.value || '';
+
+        let rows = requestsCache;
+        if (search) rows = rows.filter(r => (r.item_name || '').toLowerCase().includes(search));
+        if (statusFilter) rows = rows.filter(r => r.status === statusFilter);
+
+        if (rows.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-zinc-500 text-sm">No matching requests found.</td></tr>`;
+            return;
+        }
+
+        tbody.innerHTML = rows.map(r => {
+            let actions = '<span class="text-zinc-600">—</span>';
+            if (currentUserRole === 'Admin') {
+                const decision = r.status === 'Pending'
+                    ? `<button onclick="setRequestStatus(${r.id}, 'Approved')" class="text-emerald-500 hover:underline">Approve</button>
+                       <button onclick="setRequestStatus(${r.id}, 'Denied')" class="text-red-600 hover:underline">Deny</button>`
+                    : '';
+                actions = `${decision} <button onclick="deleteRequest(${r.id})" class="text-zinc-500 hover:underline">Delete</button>`;
+            }
+            return `<tr>
+                <td class="py-3">${r.requester_name || '—'}</td>
+                <td>${r.category}</td>
+                <td>${r.item_name}</td>
+                <td>${r.quantity || '—'}</td>
+                <td>${r.reason || '—'}</td>
+                <td>${requestStatusBadge(r.status)}</td>
+                <td class="text-right space-x-3">${actions}</td>
+            </tr>`;
+        }).join('');
+    }
+
+    window.setRequestStatus = async (id, status) => {
+        const { error } = await supabaseClient.from('item_requests').update({ status }).eq('id', id);
+        if (error) { alert(`Failed to update request: ${error.message}`); return; }
+        loadRequests();
+    };
+
+    window.deleteRequest = async (id) => {
+        if (!confirm('Delete this request?')) return;
+        const { error } = await supabaseClient.from('item_requests').delete().eq('id', id);
+        if (error) { alert(`Failed to delete request: ${error.message}`); return; }
+        loadRequests();
+    };
+
+    document.getElementById('requests-search')?.addEventListener('input', renderRequestRows);
+    document.getElementById('requests-filter')?.addEventListener('change', renderRequestRows);
+
+    async function loadRequests() {
+        const tbody = document.getElementById('requests-table-body');
+        tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-zinc-500 text-sm">Loading…</td></tr>`;
+        const { data, error } = await supabaseClient.from('item_requests').select('*').order('created_at', { ascending: false });
+        if (error || !data) {
+            tbody.innerHTML = `<tr><td colspan="7" class="py-4 text-red-500 text-sm">Failed to load requests.</td></tr>`;
+            console.error(error);
+            return;
+        }
+        requestsCache = data;
+        renderRequestRows();
+    }
+
     document.getElementById('budget-form').addEventListener('submit', (e) => handleFormSubmit(e, 'budgets', {
         fiscal_year: document.getElementById('bud-year').value,
         category: document.getElementById('bud-category').value,
@@ -855,6 +1166,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function openDivision(targetDivision, pushHistory) {
         if (!divisionData[targetDivision]) return;
         if (targetDivision === 'admin-settings' && currentUserRole !== 'Admin') { goHome(true); return; }
+        stopSessionTimer();
         if(divisionTitle) divisionTitle.innerText = divisionData[targetDivision].title;
         if(divisionDesc) divisionDesc.innerText = divisionData[targetDivision].description;
         viewHome.classList.add('hidden');
@@ -868,11 +1180,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (targetDivision === 'admin-settings' && currentUserRole === 'Admin') {
             fetchAndRenderPendingInvites();
         }
+        if (targetDivision === 'timelog') {
+            loadTimeLog();
+        }
+        if (targetDivision === 'requests') {
+            loadRequests();
+        }
         if (pushHistory) history.pushState({ division: targetDivision }, '', '#' + targetDivision);
         window.scrollTo({ top: 0, behavior: 'auto' });
     }
 
     function goHome(pushHistory) {
+        stopSessionTimer();
         viewDetail.classList.add('hidden');
         viewHome.classList.remove('hidden');
         resetFormsAndState();
@@ -950,7 +1269,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function getExportRows(table) {
         const { data, error } = await supabaseClient.from(table).select('*');
         if (error || !data) { alert(`Could not load ${table} for export: ${error ? error.message : 'no data'}`); return null; }
-        return sortAlphabetically(table, data);
+        tableDataCache[table] = data;
+        // Reuses whatever search/category filter is currently applied on screen,
+        // so exporting only includes the selected category rather than everything.
+        return getFilteredItems(table);
     }
 
     function downloadBlob(blob, filename) {
@@ -973,15 +1295,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     }
 
+    // Text of the currently selected category filter option for a division,
+    // or null if it's set to "All ___" / not applicable.
+    function getAppliedFilterLabel(table) {
+        const select = document.getElementById(`${table}-filter`);
+        if (!select || !select.value) return null;
+        return select.options[select.selectedIndex]?.text || select.value;
+    }
+
     async function exportCSV(table) {
         const config = EXPORT_CONFIG[table];
         const rows = await getExportRows(table);
         if (!rows) return;
         const dateStr = new Date().toISOString().split('T')[0];
+        const filterLabel = getAppliedFilterLabel(table);
         const preamble = [
             `Report,${csvEscape(config.title)}`,
             `Generated by,${csvEscape(currentUserName)}`,
             `Generated on,${csvEscape(dateStr)}`,
+            `Category filter,${csvEscape(filterLabel || 'All')}`,
             `Record count,${rows.length}`,
             ''
         ].join('\n');
@@ -989,7 +1321,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const lines = rows.map(row => config.columns.map(c => csvEscape(row[c.key])).join(','));
         const csv = preamble + [header, ...lines].join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-        downloadBlob(blob, `CBMES_${slugifyForFilename(config.title)}_${dateStr}.csv`);
+        const filenameSuffix = filterLabel ? `_${slugifyForFilename(filterLabel)}` : '';
+        downloadBlob(blob, `CBMES_${slugifyForFilename(config.title)}${filenameSuffix}_${dateStr}.csv`);
     }
 
     async function exportPDF(table) {
@@ -1003,13 +1336,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const dateStr = new Date().toLocaleDateString();
+            const filterLabel = getAppliedFilterLabel(table);
 
             doc.setFontSize(14); doc.setTextColor(128, 0, 0);
             doc.text('Mapúa CBMES Inventory Management Portal', 40, 40);
             doc.setFontSize(11); doc.setTextColor(60, 60, 60);
             doc.text(config.title, 40, 58);
             doc.setFontSize(8); doc.setTextColor(120, 120, 120);
-            doc.text(`Generated by ${currentUserName} on ${dateStr} — ${rows.length} record${rows.length !== 1 ? 's' : ''}`, 40, 72);
+            doc.text(`Generated by ${currentUserName} on ${dateStr} — ${rows.length} record${rows.length !== 1 ? 's' : ''}${filterLabel ? ` — Category: ${filterLabel}` : ''}`, 40, 72);
 
             doc.autoTable({
                 startY: 88,
@@ -1027,7 +1361,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const dateFile = new Date().toISOString().split('T')[0];
-        doc.save(`CBMES_${slugifyForFilename(config.title)}_${dateFile}.pdf`);
+        const filenameSuffix = getAppliedFilterLabel(table) ? `_${slugifyForFilename(getAppliedFilterLabel(table))}` : '';
+        doc.save(`CBMES_${slugifyForFilename(config.title)}${filenameSuffix}_${dateFile}.pdf`);
     }
 
     document.querySelectorAll('[data-export-csv]').forEach(btn => {
