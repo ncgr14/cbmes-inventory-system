@@ -34,6 +34,36 @@
         ::-webkit-scrollbar-track { background: #09090b; }
         ::-webkit-scrollbar-thumb { background: #3f3f46; border-radius: 6px; }
         ::-webkit-scrollbar-thumb:hover { background: #52525b; }
+
+        /* Core Table Layout Standards: fixed headers, a pinned first column,
+           and a taller viewport so more rows are visible before scrolling. */
+        .table-container {
+            max-height: 65vh;
+            overflow: auto;
+            border-radius: 0.5rem;
+            border: 1px solid #27272a;
+        }
+        .table-container table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background-color: #18181b;
+            box-shadow: 0 1px 0 0 #27272a;
+        }
+        .table-container table th:first-child,
+        .table-container table td:first-child {
+            position: sticky;
+            left: 0;
+            z-index: 1;
+            background-color: #18181b;
+            box-shadow: 1px 0 0 0 #27272a;
+        }
+        .table-container table thead th:first-child { z-index: 3; }
+
+        /* Row Density: Standard is the default; Comfortable/Compact are
+           toggled via data-density on <body> and apply to every table. */
+        body[data-density="comfortable"] table tbody td { padding-top: 20px; padding-bottom: 20px; }
+        body[data-density="compact"] table tbody td { padding-top: 6px; padding-bottom: 6px; }
     </style>
 </head>
 <body class="min-h-screen bg-zinc-950 text-zinc-300 font-sans">
@@ -47,6 +77,11 @@
             </div>
         </div>
         <div class="flex items-center space-x-4">
+            <select id="density-toggle" class="hidden text-xs border border-zinc-700 rounded-lg py-1.5 px-2" title="Table row density">
+                <option value="comfortable">Comfortable</option>
+                <option value="standard" selected>Standard</option>
+                <option value="compact">Compact</option>
+            </select>
             <button id="notification-bell" class="hidden relative p-2 rounded-full hover:bg-red-900 transition-colors cursor-pointer" title="Inventory Alerts">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a2.5 2.5 0 002.45-2H7.55A2.5 2.5 0 0010 18z"/>

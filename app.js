@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLogout = document.getElementById('btn-logout');
     const welcomeText = document.getElementById('welcome-text');
     const roleBadge = document.getElementById('role-badge');
+    const densityToggle = document.getElementById('density-toggle');
     const adminPanelCard = document.getElementById('admin-panel-card');
     const notificationBell = document.getElementById('notification-bell');
     const notificationBadge = document.getElementById('notification-badge');
@@ -38,6 +39,16 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPasswordSetupFlow = false;
     let editState = { chemicals: null, materials: null, equipment: null, apparatus: null, suppliers: null, budgets: null };
     let tableDataCache = {};
+
+    // Row Density: applies to every table via a data-density attribute on
+    // <body> (see the CSS rules), persisted across visits.
+    const savedDensity = localStorage.getItem('tableDensity') || 'standard';
+    document.body.setAttribute('data-density', savedDensity);
+    densityToggle.value = savedDensity;
+    densityToggle.addEventListener('change', () => {
+        document.body.setAttribute('data-density', densityToggle.value);
+        localStorage.setItem('tableDensity', densityToggle.value);
+    });
 
     // How many days ahead counts as "due soon" for calibration/maintenance
     const DUE_SOON_DAYS = 30;
@@ -82,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLogout.classList.add('hidden');
         roleBadge.classList.add('hidden');
         notificationBell.classList.add('hidden');
+        densityToggle.classList.add('hidden');
     }
 
     supabaseClient.auth.getSession().then(({ data: { session } }) => { handleSession(session, 'INITIAL_SESSION'); });
@@ -119,6 +131,7 @@ document.addEventListener('DOMContentLoaded', () => {
             welcomeText.innerText = `Welcome to the Mapúa CBMES Inventory Management Portal, ${userName}.`;
             roleBadge.innerText = currentUserRole;
             roleBadge.classList.remove('hidden');
+            densityToggle.classList.remove('hidden');
 
             if (!initialHashHandled) {
                 initialHashHandled = true;
@@ -157,6 +170,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnLogout.classList.add('hidden');
             roleBadge.classList.add('hidden');
             notificationBell.classList.add('hidden');
+            densityToggle.classList.add('hidden');
             hideAlertsModal();
             initialHashHandled = false;
             currentUserName = 'User';
@@ -369,6 +383,20 @@ document.addEventListener('DOMContentLoaded', () => {
         return isLowStock(item) ? '<div class="mt-1"><span class="inline-block bg-red-500/15 text-red-400 border border-red-900 text-[10px] font-bold px-2 py-0.5 rounded-full">LOW STOCK</span></div>' : '';
     }
 
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[ch]));
+    }
+
+    // Truncation & Tooltips: long free-text cells (notes, addresses, reasons,
+    // joined item lists) get an ellipsis and show the full text on hover,
+    // so a single long entry can't blow up a row's height or width.
+    function truncatedCell(text, maxWidthClass) {
+        const safe = escapeHtml(text);
+        return `<span class="block ${maxWidthClass || 'max-w-[220px]'} truncate" title="${safe}">${safe}</span>`;
+    }
+
     function dueBadge(dateStr) {
         if (!dateStr) return '<span class="text-zinc-600 text-xs">—</span>';
         const due = new Date(dateStr);
@@ -531,11 +559,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${calCell}</td><td>${maintCell}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('equipment', i)}</td></tr>`;
         },
         apparatus: (i) => `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('apparatus', i)}</td></tr>`,
-        suppliers: (i) => `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address || '—'}</td><td>${i.items_supplied || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('suppliers', i)}</td></tr>`,
+        suppliers: (i) => `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address ? truncatedCell(i.address) : '—'}</td><td>${i.items_supplied ? truncatedCell(i.items_supplied, 'max-w-[240px]') : '—'}</td><td class="text-right space-x-3">${actionButtonsFor('suppliers', i)}</td></tr>`,
         budgets: (i) => {
             const remaining = (parseFloat(i.allocated_amount) || 0) - (parseFloat(i.spent_amount) || 0);
             const remainingCls = remaining < 0 ? 'text-red-500 font-bold' : 'text-emerald-500';
-            return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td>${i.notes || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('budgets', i)}</td></tr>`;
+            return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td>${i.notes ? truncatedCell(i.notes) : '—'}</td><td class="text-right space-x-3">${actionButtonsFor('budgets', i)}</td></tr>`;
         }
     };
 
@@ -1014,8 +1042,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${new Date(s.time_in).toLocaleString()}</td>
                 <td>${s.time_out ? new Date(s.time_out).toLocaleString() : '—'}</td>
                 <td>${duration}</td>
-                <td>${equipmentUsed}</td>
-                <td>${chemicalsUsed}</td>
+                <td>${truncatedCell(equipmentUsed, 'max-w-[260px]')}</td>
+                <td>${truncatedCell(chemicalsUsed, 'max-w-[300px]')}</td>
             </tr>`;
         }).join('');
     }
@@ -1103,11 +1131,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 actions = `${decision} <button onclick="deleteRequest(${r.id})" class="text-zinc-500 hover:underline">Delete</button>`;
             }
             return `<tr>
-                <td class="py-3">${r.requester_name || '—'}</td>
-                <td>${r.category}</td>
-                <td>${r.item_name}</td>
-                <td>${r.quantity || '—'}</td>
-                <td>${r.reason || '—'}</td>
+                <td class="py-3">${escapeHtml(r.requester_name || '—')}</td>
+                <td>${escapeHtml(r.category)}</td>
+                <td>${truncatedCell(r.item_name, 'max-w-[200px]')}</td>
+                <td>${escapeHtml(r.quantity || '—')}</td>
+                <td>${r.reason ? truncatedCell(r.reason, 'max-w-[220px]') : '—'}</td>
                 <td>${requestStatusBadge(r.status)}</td>
                 <td class="text-right space-x-3">${actions}</td>
             </tr>`;
