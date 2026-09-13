@@ -536,10 +536,19 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...data].sort((a, b) => String(a[field] || '').localeCompare(String(b[field] || ''), undefined, { sensitivity: 'base' }));
     }
 
+    // Wraps action links/buttons in a flex row so they always sit on one
+    // line and stay right-aligned, instead of the browser wrapping them
+    // onto separate lines whenever a table gets width-constrained (which
+    // used to stretch every row's height to match, leaving other single-line
+    // cells stranded with an ugly empty gap below them).
+    function actionsCell(innerHtml) {
+        return `<div class="flex flex-nowrap justify-end items-center gap-3">${innerHtml}</div>`;
+    }
+
     function actionButtonsFor(table, i) {
         if (currentUserRole === 'Admin') {
-            return `<button onclick="editItem('${table}', ${i.id})" class="text-blue-600 hover:underline">Edit</button>
-                    <button onclick="deleteItem('${table}', ${i.id})" class="text-red-600 hover:underline">Delete</button>`;
+            return actionsCell(`<button onclick="editItem('${table}', ${i.id})" class="text-blue-600 hover:underline">Edit</button>
+                    <button onclick="deleteItem('${table}', ${i.id})" class="text-red-600 hover:underline">Delete</button>`);
         }
         return '';
     }
@@ -550,20 +559,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const ROW_HTML = {
         chemicals: (i) => {
             const cost = (i.unit_cost !== null && i.unit_cost !== undefined) ? `₱${Number(i.unit_cost).toLocaleString()}` : '—';
-            return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.classification || '—'}</td><td>${i.cas}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.grade}</td><td>${i.location}</td><td>${i.supplier || '—'}</td><td>${cost}</td><td class="text-right space-x-3">${actionButtonsFor('chemicals', i)}</td></tr>`;
+            return `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.classification || '—'}</td><td>${i.cas}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.grade}</td><td>${i.location}</td><td>${i.supplier || '—'}</td><td>${cost}</td><td class="text-right">${actionButtonsFor('chemicals', i)}</td></tr>`;
         },
-        materials: (i) => `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('materials', i)}</td></tr>`,
+        materials: (i) => `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.supplier || '—'}</td><td class="text-right">${actionButtonsFor('materials', i)}</td></tr>`,
         equipment: (i) => {
             const calCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.calibration_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_calibration_date)}</span></div>`;
             const maintCell = `<div class="flex items-center gap-2 flex-wrap text-xs whitespace-nowrap"><span class="text-zinc-500">Last: <span class="text-zinc-300">${i.maintenance_date || '—'}</span></span><span class="text-zinc-500">Next: ${dueBadge(i.next_maintenance_date)}</span></div>`;
-            return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${calCell}</td><td>${maintCell}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('equipment', i)}</td></tr>`;
+            return `<tr><td class="py-3">${i.name}</td><td>${i.serial}</td><td>${i.classification || '—'}</td><td>${i.status}</td><td>${calCell}</td><td>${maintCell}</td><td>${i.supplier || '—'}</td><td class="text-right">${actionButtonsFor('equipment', i)}</td></tr>`;
         },
-        apparatus: (i) => `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right space-x-3">${actionButtonsFor('apparatus', i)}</td></tr>`,
-        suppliers: (i) => `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address ? truncatedCell(i.address) : '—'}</td><td>${i.items_supplied ? truncatedCell(i.items_supplied, 'max-w-[240px]') : '—'}</td><td class="text-right space-x-3">${actionButtonsFor('suppliers', i)}</td></tr>`,
+        apparatus: (i) => `<tr><td class="py-3">${i.name}${lowStockBadge(i)}</td><td>${i.category}</td><td>${i.stock} ${i.unit || ''}</td><td>${i.location || '—'}</td><td>${i.supplier || '—'}</td><td class="text-right">${actionButtonsFor('apparatus', i)}</td></tr>`,
+        suppliers: (i) => `<tr><td class="py-3">${i.name}</td><td>${i.category || '—'}</td><td>${i.contact_person || '—'}</td><td>${i.phone || '—'}</td><td>${i.email || '—'}</td><td>${i.address ? truncatedCell(i.address) : '—'}</td><td>${i.items_supplied ? truncatedCell(i.items_supplied, 'max-w-[240px]') : '—'}</td><td class="text-right">${actionButtonsFor('suppliers', i)}</td></tr>`,
         budgets: (i) => {
             const remaining = (parseFloat(i.allocated_amount) || 0) - (parseFloat(i.spent_amount) || 0);
             const remainingCls = remaining < 0 ? 'text-red-500 font-bold' : 'text-emerald-500';
-            return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td>${i.notes ? truncatedCell(i.notes) : '—'}</td><td class="text-right space-x-3">${actionButtonsFor('budgets', i)}</td></tr>`;
+            return `<tr><td class="py-3">${i.fiscal_year}</td><td>${i.category}</td><td>₱${Number(i.allocated_amount).toLocaleString()}</td><td>₱${Number(i.spent_amount || 0).toLocaleString()}</td><td class="${remainingCls}">₱${remaining.toLocaleString()}</td><td>${i.notes ? truncatedCell(i.notes) : '—'}</td><td class="text-right">${actionButtonsFor('budgets', i)}</td></tr>`;
         }
     };
 
@@ -1128,7 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<button onclick="setRequestStatus(${r.id}, 'Approved')" class="text-emerald-500 hover:underline">Approve</button>
                        <button onclick="setRequestStatus(${r.id}, 'Denied')" class="text-red-600 hover:underline">Deny</button>`
                     : '';
-                actions = `${decision} <button onclick="deleteRequest(${r.id})" class="text-zinc-500 hover:underline">Delete</button>`;
+                actions = `<div class="flex flex-wrap justify-end items-center gap-x-3 gap-y-1">${decision}<button onclick="deleteRequest(${r.id})" class="text-zinc-500 hover:underline">Delete</button></div>`;
             }
             return `<tr>
                 <td class="py-3">${escapeHtml(r.requester_name || '—')}</td>
@@ -1137,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${escapeHtml(r.quantity || '—')}</td>
                 <td>${r.reason ? truncatedCell(r.reason, 'max-w-[220px]') : '—'}</td>
                 <td>${requestStatusBadge(r.status)}</td>
-                <td class="text-right space-x-3">${actions}</td>
+                <td class="text-right">${actions}</td>
             </tr>`;
         }).join('');
     }
