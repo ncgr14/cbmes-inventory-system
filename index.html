@@ -59,6 +59,13 @@
             box-shadow: 1px 0 0 0 #27272a;
         }
         .table-container table thead th:first-child { z-index: 3; }
+        /* The pinned first column paints its own solid background (so
+           scrolled content can't show through it) instead of the row's
+           transparent one, which otherwise reveals the zebra stripe / hover
+           tint underneath — so it has to replicate those states itself,
+           using the same colors those tints resolve to over the card bg. */
+        .table-container table tbody tr:nth-child(even) td:first-child { background-color: #1f1f22; }
+        .table-container table tbody tr:hover td:first-child { background-color: #26262a; }
 
         /* Row Density: Standard is the default; Comfortable/Compact are
            toggled via data-density on <body> and apply to every table. */
