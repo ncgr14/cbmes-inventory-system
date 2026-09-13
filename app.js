@@ -154,14 +154,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 tableContainers.forEach(container => container.classList.replace('md:col-span-3', 'md:col-span-2'));
             }
             
+            // Kick off the low-stock/calibration check first so it doesn't
+            // sit queued behind the six division fetches below — it should
+            // land the moment login completes, not after everything else.
+            refreshAlerts(justLoggedIn);
+            justLoggedIn = false;
+
             fetchAndRenderTable('chemicals');
             fetchAndRenderTable('materials');
             fetchAndRenderTable('equipment');
             fetchAndRenderTable('apparatus');
             fetchAndRenderTable('suppliers');
             fetchAndRenderTable('budgets');
-            refreshAlerts(justLoggedIn);
-            justLoggedIn = false;
         } else {
             viewAuth.classList.remove('hidden');
             viewHome.classList.add('hidden');
@@ -428,9 +432,18 @@ document.addEventListener('DOMContentLoaded', () => {
     async function gatherAlerts() {
         const alerts = { lowStock: [], calibration: [] };
 
-        for (const table of ['chemicals', 'materials', 'apparatus']) {
-            const { data, error } = await supabaseClient.from(table).select('*');
-            if (error || !data) continue;
+        // Fetch every stock table + equipment in parallel (not one-by-one)
+        // so the low-stock/calibration alerts show up as fast as possible,
+        // right alongside the rest of the data loaded at login.
+        const stockTables = ['chemicals', 'materials', 'apparatus'];
+        const [stockResults, eqResult] = await Promise.all([
+            Promise.all(stockTables.map(table => supabaseClient.from(table).select('*'))),
+            supabaseClient.from('equipment').select('*')
+        ]);
+
+        stockTables.forEach((table, idx) => {
+            const { data, error } = stockResults[idx];
+            if (error || !data) return;
             data.forEach(item => {
                 if (isLowStock(item)) {
                     alerts.lowStock.push({
@@ -443,9 +456,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
             });
-        }
+        });
 
-        const { data: eqData, error: eqError } = await supabaseClient.from('equipment').select('*');
+        const { data: eqData, error: eqError } = eqResult;
         if (!eqError && eqData) {
             eqData.forEach(item => {
                 const calStatus = getDueStatus(item.next_calibration_date);
