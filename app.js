@@ -19,6 +19,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnLogout = document.getElementById('btn-logout');
     const welcomeText = document.getElementById('welcome-text');
     const roleBadge = document.getElementById('role-badge');
+    const themeToggle = document.getElementById('theme-toggle');
+    const themeIconSun = document.getElementById('theme-icon-sun');
+    const themeIconMoon = document.getElementById('theme-icon-moon');
     const densityToggle = document.getElementById('density-toggle');
     const adminPanelCard = document.getElementById('admin-panel-card');
     const notificationBell = document.getElementById('notification-bell');
@@ -39,6 +42,23 @@ document.addEventListener('DOMContentLoaded', () => {
     let isPasswordSetupFlow = false;
     let editState = { chemicals: null, materials: null, equipment: null, apparatus: null, suppliers: null, budgets: null };
     let tableDataCache = {};
+
+    // Light / Dark mode: applied via a data-theme attribute on <body> (see
+    // the CSS overrides), persisted across visits. Dark is the default —
+    // it's what this portal has always looked like.
+    function applyTheme(theme) {
+        document.body.setAttribute('data-theme', theme);
+        themeIconSun.classList.toggle('hidden', theme !== 'dark');
+        themeIconMoon.classList.toggle('hidden', theme !== 'light');
+        themeToggle.title = theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+    const savedTheme = localStorage.getItem('theme') || 'dark';
+    applyTheme(savedTheme);
+    themeToggle.addEventListener('click', () => {
+        const next = document.body.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        applyTheme(next);
+        localStorage.setItem('theme', next);
+    });
 
     // Row Density: applies to every table via a data-density attribute on
     // <body> (see the CSS rules), persisted across visits.
@@ -93,6 +113,7 @@ document.addEventListener('DOMContentLoaded', () => {
         btnLogout.classList.add('hidden');
         roleBadge.classList.add('hidden');
         notificationBell.classList.add('hidden');
+        themeToggle.classList.add('hidden');
         densityToggle.classList.add('hidden');
     }
 
@@ -131,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
             welcomeText.innerText = `Welcome to the Mapúa CBMES Inventory Management Portal, ${userName}.`;
             roleBadge.innerText = currentUserRole;
             roleBadge.classList.remove('hidden');
+            themeToggle.classList.remove('hidden');
             densityToggle.classList.remove('hidden');
 
             if (!initialHashHandled) {
@@ -174,6 +196,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnLogout.classList.add('hidden');
             roleBadge.classList.add('hidden');
             notificationBell.classList.add('hidden');
+            themeToggle.classList.add('hidden');
             densityToggle.classList.add('hidden');
             hideAlertsModal();
             initialHashHandled = false;

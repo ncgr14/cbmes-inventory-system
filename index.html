@@ -71,6 +71,90 @@
            toggled via data-density on <body> and apply to every table. */
         body[data-density="comfortable"] table tbody td { padding-top: 20px; padding-bottom: 20px; }
         body[data-density="compact"] table tbody td { padding-top: 6px; padding-bottom: 6px; }
+
+        /* ------------------------------------------------------------
+           Light Mode
+           The rest of the app is built with hardcoded dark Tailwind
+           utility classes (bg-zinc-900, text-zinc-400, etc.) rather than
+           theme tokens, so light mode is implemented as a same-specificity
+           override layer keyed off those exact class names, scoped under
+           body[data-theme="light"]. Brand colors (red/purple buttons,
+           status badges' hue) already read fine on a white background and
+           are left alone; only neutrals and dark-tuned custom CSS below
+           are remapped. Toggled from app.js, persisted in localStorage.
+           ------------------------------------------------------------ */
+        body[data-theme="light"] { background-color: #ffffff; }
+        body[data-theme="light"].bg-zinc-950 { background-color: #f4f4f5; }
+        body[data-theme="light"] .bg-zinc-950 { background-color: #f4f4f5; }
+        body[data-theme="light"] .bg-zinc-900 { background-color: #ffffff; }
+        body[data-theme="light"] .bg-zinc-800 { background-color: #f4f4f5; }
+        body[data-theme="light"] .bg-zinc-700 { background-color: #e4e4e7; }
+        body[data-theme="light"] .bg-zinc-700\/40 { background-color: rgba(228,228,231,0.6); }
+
+        body[data-theme="light"] .text-zinc-100 { color: #18181b; }
+        body[data-theme="light"] .text-zinc-200 { color: #27272a; }
+        body[data-theme="light"] .text-zinc-300,
+        body[data-theme="light"].text-zinc-300 { color: #3f3f46; }
+        body[data-theme="light"] .text-zinc-400 { color: #52525b; }
+        body[data-theme="light"] .text-zinc-500 { color: #52525b; }
+        body[data-theme="light"] .text-zinc-600 { color: #71717a; }
+
+        body[data-theme="light"] .border-zinc-700 { border-color: #d4d4d8; }
+        body[data-theme="light"] .border-zinc-800 { border-color: #e4e4e7; }
+        body[data-theme="light"] .border-red-900\/60 { border-color: #fecaca; }
+
+        body[data-theme="light"] .hover\:bg-zinc-700:hover { background-color: #e4e4e7; }
+        body[data-theme="light"] .hover\:bg-zinc-800:hover { background-color: #f4f4f5; }
+        body[data-theme="light"] .hover\:bg-zinc-900:hover { background-color: #fafafa; }
+        body[data-theme="light"] .hover\:text-zinc-200:hover { color: #18181b; }
+
+        /* Small text (red-500) that's fine on dark but under-contrasts on
+           white — nudge it one step darker rather than change the hue. */
+        body[data-theme="light"] .text-red-500 { color: #dc2626; }
+
+        /* Status badges (low stock, pending/accepted, calibration due) pair
+           a bright 400-weight text with a near-black 900-weight border,
+           tuned for a dark chip — invert that weighting for a light chip. */
+        body[data-theme="light"] .text-amber-400 { color: #b45309; }
+        body[data-theme="light"] .border-amber-600 { border-color: #fbbf24; }
+        body[data-theme="light"] .border-amber-900 { border-color: #fde68a; }
+        body[data-theme="light"] .text-emerald-400,
+        body[data-theme="light"] .text-emerald-500 { color: #047857; }
+        body[data-theme="light"] .border-emerald-900 { border-color: #a7f3d0; }
+        body[data-theme="light"] .text-red-400 { color: #b91c1c; }
+        body[data-theme="light"] .border-red-600 { border-color: #f87171; }
+        body[data-theme="light"] .border-red-900 { border-color: #fecaca; }
+
+        body[data-theme="light"] input,
+        body[data-theme="light"] select,
+        body[data-theme="light"] textarea {
+            background-color: #ffffff;
+            color: #18181b;
+            color-scheme: light;
+        }
+        body[data-theme="light"] input::placeholder,
+        body[data-theme="light"] textarea::placeholder { color: #a1a1aa; }
+        body[data-theme="light"] select option { background-color: #ffffff; color: #18181b; }
+
+        body[data-theme="light"] table tbody tr:hover { background-color: rgba(0,0,0,0.04); }
+        body[data-theme="light"] table tbody tr:nth-child(even) { background-color: rgba(0,0,0,0.02); }
+
+        body[data-theme="light"] .table-container { border-color: #e4e4e7; }
+        body[data-theme="light"] .table-container table thead th {
+            background-color: #ffffff;
+            box-shadow: 0 1px 0 0 #e4e4e7;
+        }
+        body[data-theme="light"] .table-container table th:first-child,
+        body[data-theme="light"] .table-container table td:first-child {
+            background-color: #ffffff;
+            box-shadow: 1px 0 0 0 #e4e4e7;
+        }
+        body[data-theme="light"] .table-container table tbody tr:nth-child(even) td:first-child { background-color: #fafafa; }
+        body[data-theme="light"] .table-container table tbody tr:hover td:first-child { background-color: #f5f5f5; }
+
+        body[data-theme="light"] ::-webkit-scrollbar-track { background: #f4f4f5; }
+        body[data-theme="light"] ::-webkit-scrollbar-thumb { background: #d4d4d8; }
+        body[data-theme="light"] ::-webkit-scrollbar-thumb:hover { background: #a1a1aa; }
     </style>
 </head>
 <body class="min-h-screen bg-zinc-950 text-zinc-300 font-sans">
@@ -84,6 +168,14 @@
             </div>
         </div>
         <div class="flex items-center space-x-4">
+            <button id="theme-toggle" class="hidden text-zinc-400 hover:text-zinc-200 p-2 rounded-full hover:bg-zinc-800 transition-colors cursor-pointer" title="Switch to light mode">
+                <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M10 2a1 1 0 011 1v1a1 1 0 11-2 0V3a1 1 0 011-1zm4 8a4 4 0 11-8 0 4 4 0 018 0zm-1.05 4.95a1 1 0 011.414 0l.707.707a1 1 0 11-1.414 1.414l-.707-.707a1 1 0 010-1.414zm-8.486 0a1 1 0 010 1.414l-.707.707a1 1 0 11-1.414-1.414l.707-.707a1 1 0 011.414 0zM14.95 5.05a1 1 0 010-1.414l.707-.707a1 1 0 111.414 1.414l-.707.707a1 1 0 01-1.414 0zm-9.9 0a1 1 0 01-1.414 0l-.707-.707A1 1 0 014.343 2.93l.707.707a1 1 0 010 1.414zM17 9a1 1 0 100 2h1a1 1 0 100-2h-1zM2 9a1 1 0 100 2h1a1 1 0 100-2H2zm8 8a1 1 0 011 1v1a1 1 0 11-2 0v-1a1 1 0 011-1z"/>
+                </svg>
+                <svg id="theme-icon-moon" class="hidden h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path d="M17.293 13.293A8 8 0 016.707 2.707a8.001 8.001 0 1010.586 10.586z"/>
+                </svg>
+            </button>
             <select id="density-toggle" class="hidden text-xs border border-zinc-700 rounded-lg py-1.5 px-2" title="Table row density">
                 <option value="comfortable">Comfortable</option>
                 <option value="standard" selected>Standard</option>
