@@ -99,9 +99,35 @@
         body[data-theme="light"] .text-zinc-500 { color: #52525b; }
         body[data-theme="light"] .text-zinc-600 { color: #71717a; }
 
+        /* Log Out button keeps its near-black bg-red-950 background in both
+           themes (it reads fine on white either way) — but its text-zinc-300
+           was written for that dark background, so the general zinc-300
+           remap above (meant for text sitting on light card backgrounds)
+           would darken it into near-illegibility here. Override back to a
+           light, readable color for this specific dark-on-dark button. */
+        body[data-theme="light"] .bg-red-950.text-zinc-300 { color: #fecaca; }
+
         body[data-theme="light"] .border-zinc-700 { border-color: #d4d4d8; }
         body[data-theme="light"] .border-zinc-800 { border-color: #e4e4e7; }
         body[data-theme="light"] .border-red-900\/60 { border-color: #fecaca; }
+
+        /* The dashboard cards' colored accent (border-l-4 border-l-{color})
+           sits on an element that also carries border-zinc-800 for its other
+           3 sides. Both are single-class selectors in Tailwind's own CSS, so
+           border-l-* normally wins there via source order — but the
+           border-zinc-800 override just above is more specific (it's scoped
+           under body[data-theme="light"]) and, being the border-color
+           shorthand, clobbers border-left-color too. Re-assert each accent
+           color at matching specificity so the left edge keeps its color. */
+        body[data-theme="light"] .border-l-red-600 { border-left-color: #dc2626; }
+        body[data-theme="light"] .border-l-amber-600 { border-left-color: #d97706; }
+        body[data-theme="light"] .border-l-blue-600 { border-left-color: #2563eb; }
+        body[data-theme="light"] .border-l-emerald-600 { border-left-color: #059669; }
+        body[data-theme="light"] .border-l-teal-600 { border-left-color: #0d9488; }
+        body[data-theme="light"] .border-l-indigo-600 { border-left-color: #4f46e5; }
+        body[data-theme="light"] .border-l-cyan-600 { border-left-color: #0891b2; }
+        body[data-theme="light"] .border-l-orange-600 { border-left-color: #ea580c; }
+        body[data-theme="light"] .border-l-purple-600 { border-left-color: #9333ea; }
 
         body[data-theme="light"] .hover\:bg-zinc-700:hover { background-color: #e4e4e7; }
         body[data-theme="light"] .hover\:bg-zinc-800:hover { background-color: #f4f4f5; }
