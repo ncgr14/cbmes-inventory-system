@@ -215,7 +215,26 @@
             </button>
             <span id="role-badge" class="hidden text-xs bg-amber-400 text-red-950 font-bold px-3 py-1 rounded-full shadow"></span>
             <button id="btn-logout" class="hidden text-xs bg-red-950 px-3 py-1 rounded-full border border-red-800 text-zinc-300 hover:bg-red-900 transition-colors cursor-pointer">Log Out</button>
-            <div class="w-8 h-8 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow">DB</div>
+            <div class="hidden relative" id="user-account-wrap">
+                <button id="user-avatar-btn" class="w-8 h-8 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow cursor-pointer hover:brightness-95 transition" title="Account details">
+                    <span id="user-avatar-initials">—</span>
+                </button>
+                <div id="user-account-panel" class="hidden absolute right-0 mt-2 w-72 bg-zinc-900 border border-zinc-800 rounded-xl shadow-lg z-50 p-4">
+                    <div class="flex items-center space-x-3 mb-4">
+                        <div class="w-10 h-10 rounded-full bg-amber-400 text-red-950 font-bold flex items-center justify-center text-sm shadow shrink-0">
+                            <span id="user-account-initials">—</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p id="user-account-name" class="text-sm font-bold text-zinc-100 truncate"></p>
+                            <p id="user-account-email" class="text-xs text-zinc-500 truncate"></p>
+                        </div>
+                    </div>
+                    <div class="border-t border-zinc-800 pt-3">
+                        <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Status</p>
+                        <span id="user-account-role" class="inline-block text-xs bg-amber-400 text-red-950 font-bold px-3 py-1 rounded-full shadow"></span>
+                    </div>
+                </div>
+            </div>
         </div>
     </header>
 

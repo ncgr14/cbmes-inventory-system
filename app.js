@@ -32,9 +32,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const dismissNotificationBtn = document.getElementById('dismiss-notification-btn');
     const setPasswordForm = document.getElementById('set-password-form');
     const setPasswordError = document.getElementById('set-password-error');
+    const userAccountWrap = document.getElementById('user-account-wrap');
+    const userAvatarBtn = document.getElementById('user-avatar-btn');
+    const userAccountPanel = document.getElementById('user-account-panel');
+    const userAvatarInitials = document.getElementById('user-avatar-initials');
+    const userAccountInitials = document.getElementById('user-account-initials');
+    const userAccountName = document.getElementById('user-account-name');
+    const userAccountEmail = document.getElementById('user-account-email');
+    const userAccountRole = document.getElementById('user-account-role');
 
     let currentUserRole = 'Student';
     let currentUserName = 'User';
+    let currentUserEmail = '—';
     let currentUserId = null;
     let currentStudentNumber = '—';
     let justLoggedIn = false;
@@ -68,6 +77,34 @@ document.addEventListener('DOMContentLoaded', () => {
     densityToggle.addEventListener('change', () => {
         document.body.setAttribute('data-density', densityToggle.value);
         localStorage.setItem('tableDensity', densityToggle.value);
+    });
+
+    // Account details popover: click the avatar to see name/email/status.
+    function initialsFor(name) {
+        const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+        if (parts.length === 0) return 'U';
+        return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+    }
+
+    function renderUserAccountPanel() {
+        const initials = initialsFor(currentUserName);
+        userAvatarInitials.innerText = initials;
+        userAccountInitials.innerText = initials;
+        userAccountName.innerText = currentUserName;
+        userAccountEmail.innerText = currentUserEmail;
+        userAccountRole.innerText = currentUserRole === 'Admin' ? 'Professor / Admin' : 'Student';
+    }
+
+    function closeUserAccountPanel() { userAccountPanel.classList.add('hidden'); }
+
+    userAvatarBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        userAccountPanel.classList.toggle('hidden');
+    });
+    document.addEventListener('click', (e) => {
+        if (!userAccountPanel.classList.contains('hidden') && !userAccountWrap.contains(e.target)) {
+            closeUserAccountPanel();
+        }
     });
 
     // How many days ahead counts as "due soon" for calibration/maintenance
@@ -115,6 +152,8 @@ document.addEventListener('DOMContentLoaded', () => {
         notificationBell.classList.add('hidden');
         themeToggle.classList.add('hidden');
         densityToggle.classList.add('hidden');
+        userAccountWrap.classList.add('hidden');
+        closeUserAccountPanel();
     }
 
     supabaseClient.auth.getSession().then(({ data: { session } }) => { handleSession(session, 'INITIAL_SESSION'); });
@@ -133,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const userName = session.user.user_metadata?.full_name || 'User';
             currentUserName = userName;
+            currentUserEmail = session.user.email || '—';
             currentUserId = session.user.id;
             currentUserRole = session.user.user_metadata?.role || 'Student';
             currentStudentNumber = session.user.user_metadata?.student_number || '—';
@@ -154,6 +194,8 @@ document.addEventListener('DOMContentLoaded', () => {
             roleBadge.classList.remove('hidden');
             themeToggle.classList.remove('hidden');
             densityToggle.classList.remove('hidden');
+            renderUserAccountPanel();
+            userAccountWrap.classList.remove('hidden');
 
             if (!initialHashHandled) {
                 initialHashHandled = true;
@@ -198,9 +240,12 @@ document.addEventListener('DOMContentLoaded', () => {
             notificationBell.classList.add('hidden');
             themeToggle.classList.add('hidden');
             densityToggle.classList.add('hidden');
+            userAccountWrap.classList.add('hidden');
+            closeUserAccountPanel();
             hideAlertsModal();
             initialHashHandled = false;
             currentUserName = 'User';
+            currentUserEmail = '—';
             currentUserId = null;
             currentStudentNumber = '—';
         }
