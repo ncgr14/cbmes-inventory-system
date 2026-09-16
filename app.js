@@ -8,7 +8,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const viewHome = document.getElementById('view-home');
     const viewDetail = document.getElementById('view-division-detail');
     const viewSetPassword = document.getElementById('view-set-password');
-    
+    const viewAccountSettings = document.getElementById('view-account-settings');
+
     const divisionTitle = document.getElementById('division-title');
     const divisionDesc = document.getElementById('division-desc');
     const backBtn = document.getElementById('back-home-btn');
@@ -40,6 +41,14 @@ document.addEventListener('DOMContentLoaded', () => {
     const userAccountName = document.getElementById('user-account-name');
     const userAccountEmail = document.getElementById('user-account-email');
     const userAccountRole = document.getElementById('user-account-role');
+    const openAccountSettingsBtn = document.getElementById('open-account-settings-btn');
+    const backFromAccountSettingsBtn = document.getElementById('back-from-account-settings-btn');
+    const accountSettingsForm = document.getElementById('account-settings-form');
+    const accountSettingsName = document.getElementById('account-settings-name');
+    const accountSettingsEmail = document.getElementById('account-settings-email');
+    const accountSettingsNewPassword = document.getElementById('account-settings-new-password');
+    const accountSettingsConfirmPassword = document.getElementById('account-settings-confirm-password');
+    const accountSettingsMessage = document.getElementById('account-settings-message');
 
     let currentUserRole = 'Student';
     let currentUserName = 'User';
@@ -146,6 +155,7 @@ document.addEventListener('DOMContentLoaded', () => {
         viewAuth.classList.add('hidden');
         viewHome.classList.add('hidden');
         viewDetail.classList.add('hidden');
+        viewAccountSettings.classList.add('hidden');
         viewSetPassword.classList.remove('hidden');
         btnLogout.classList.add('hidden');
         roleBadge.classList.add('hidden');
@@ -234,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
             viewAuth.classList.remove('hidden');
             viewHome.classList.add('hidden');
             viewDetail.classList.add('hidden');
+            viewAccountSettings.classList.add('hidden');
             viewSetPassword.classList.add('hidden');
             btnLogout.classList.add('hidden');
             roleBadge.classList.add('hidden');
@@ -1288,6 +1299,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if(divisionTitle) divisionTitle.innerText = divisionData[targetDivision].title;
         if(divisionDesc) divisionDesc.innerText = divisionData[targetDivision].description;
         viewHome.classList.add('hidden');
+        viewAccountSettings.classList.add('hidden');
         viewDetail.classList.remove('hidden');
         Object.keys(workspaces).forEach(key => { if (workspaces[key]) workspaces[key].classList.toggle('hidden', key !== targetDivision); });
         resetFormsAndState();
@@ -1311,11 +1323,86 @@ document.addEventListener('DOMContentLoaded', () => {
     function goHome(pushHistory) {
         stopSessionTimer();
         viewDetail.classList.add('hidden');
+        viewAccountSettings.classList.add('hidden');
         viewHome.classList.remove('hidden');
         resetFormsAndState();
         if (pushHistory) history.pushState({ division: null }, '', window.location.pathname + window.location.search);
         window.scrollTo({ top: 0, behavior: 'auto' });
     }
+
+    // Account Settings: its own page (not a "division") where the signed-in
+    // user can edit only their own name, email, and password.
+    function openAccountSettings() {
+        closeUserAccountPanel();
+        stopSessionTimer();
+        viewHome.classList.add('hidden');
+        viewDetail.classList.add('hidden');
+        viewAccountSettings.classList.remove('hidden');
+        accountSettingsName.value = currentUserName;
+        accountSettingsEmail.value = currentUserEmail;
+        accountSettingsNewPassword.value = '';
+        accountSettingsConfirmPassword.value = '';
+        accountSettingsMessage.classList.add('hidden');
+        window.scrollTo({ top: 0, behavior: 'auto' });
+    }
+
+    openAccountSettingsBtn.addEventListener('click', openAccountSettings);
+    backFromAccountSettingsBtn.addEventListener('click', () => goHome(true));
+
+    accountSettingsForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const name = accountSettingsName.value.trim();
+        const email = accountSettingsEmail.value.trim();
+        const newPassword = accountSettingsNewPassword.value;
+        const confirmPassword = accountSettingsConfirmPassword.value;
+
+        accountSettingsMessage.classList.remove('hidden', 'text-emerald-500', 'text-red-500', 'text-zinc-400');
+
+        if (newPassword || confirmPassword) {
+            if (newPassword !== confirmPassword) {
+                accountSettingsMessage.classList.add('text-red-500');
+                accountSettingsMessage.innerText = 'New password and confirmation do not match.';
+                return;
+            }
+            if (newPassword.length < 6) {
+                accountSettingsMessage.classList.add('text-red-500');
+                accountSettingsMessage.innerText = 'Password must be at least 6 characters.';
+                return;
+            }
+        }
+
+        accountSettingsMessage.classList.add('text-zinc-400');
+        accountSettingsMessage.innerText = 'Saving…';
+
+        // Only the fields the user actually changed — a bare {data: {full_name}}
+        // merges into existing user_metadata rather than replacing it, so role
+        // and student_number are never touched from this form.
+        const updatePayload = { data: { full_name: name } };
+        const emailChanged = email && email !== currentUserEmail;
+        if (emailChanged) updatePayload.email = email;
+        if (newPassword) updatePayload.password = newPassword;
+
+        const { error } = await supabaseClient.auth.updateUser(updatePayload);
+
+        if (error) {
+            accountSettingsMessage.classList.remove('text-zinc-400');
+            accountSettingsMessage.classList.add('text-red-500');
+            accountSettingsMessage.innerText = `Failed to save: ${error.message}`;
+            return;
+        }
+
+        currentUserName = name;
+        welcomeText.innerText = `Welcome to the Mapúa CBMES Inventory Management Portal, ${currentUserName}.`;
+        renderUserAccountPanel();
+        accountSettingsNewPassword.value = '';
+        accountSettingsConfirmPassword.value = '';
+
+        accountSettingsMessage.classList.remove('text-zinc-400');
+        accountSettingsMessage.classList.add('text-emerald-500');
+        accountSettingsMessage.innerText = emailChanged
+            ? "Saved. Check your new email address for a confirmation link — the email change won't take effect until you confirm it."
+            : 'Account details updated.';
+    });
 
     document.querySelectorAll('.nav-btn').forEach(button => {
         button.addEventListener('click', () => openDivision(button.getAttribute('data-target'), true));

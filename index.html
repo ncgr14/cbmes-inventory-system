@@ -233,6 +233,11 @@
                         <p class="text-[10px] font-bold text-zinc-500 uppercase tracking-wide mb-1.5">Status</p>
                         <span id="user-account-role" class="inline-block text-xs bg-amber-400 text-red-950 font-bold px-3 py-1 rounded-full shadow"></span>
                     </div>
+                    <div class="border-t border-zinc-800 mt-3 pt-3">
+                        <button id="open-account-settings-btn" type="button" class="w-full text-left text-sm text-zinc-300 hover:text-zinc-100 font-medium cursor-pointer flex items-center justify-between">
+                            <span>Edit Account Details</span><span>→</span>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -300,6 +305,47 @@
                         <button type="submit" class="w-full bg-red-800 text-white font-semibold p-2 rounded hover:bg-red-900 transition-colors cursor-pointer">Create Account &amp; Continue to Login</button>
                     </div>
                 </form>
+            </div>
+        </section>
+
+        <section id="view-account-settings" class="view-section hidden">
+            <div class="bg-zinc-900 rounded-xl border border-zinc-800 p-8 shadow-sm">
+                <button id="back-from-account-settings-btn" class="mb-4 text-sm font-medium text-red-500 hover:underline flex items-center space-x-1 cursor-pointer">
+                    <span>←</span> <span>Return to Main Dashboard</span>
+                </button>
+                <hr class="mb-6 border-zinc-800">
+
+                <h2 class="text-2xl font-bold text-zinc-100">Account Settings</h2>
+                <p class="text-zinc-400 mt-2 mb-8">Update your name, email address, or password.</p>
+
+                <div class="max-w-lg bg-zinc-800 p-6 rounded-xl border border-zinc-800">
+                    <form id="account-settings-form" class="space-y-4">
+                        <div>
+                            <label class="text-xs font-bold text-zinc-400 uppercase">Full Name</label>
+                            <input type="text" id="account-settings-name" required class="w-full border border-zinc-700 rounded-lg p-2 text-sm mt-1">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-zinc-400 uppercase">Email Address</label>
+                            <input type="email" id="account-settings-email" required class="w-full border border-zinc-700 rounded-lg p-2 text-sm mt-1">
+                        </div>
+
+                        <hr class="border-zinc-700 !my-6">
+
+                        <p class="text-xs text-zinc-500">Leave these blank to keep your current password.</p>
+                        <div>
+                            <label class="text-xs font-bold text-zinc-400 uppercase">New Password</label>
+                            <input type="password" id="account-settings-new-password" minlength="6" class="w-full border border-zinc-700 rounded-lg p-2 text-sm mt-1">
+                        </div>
+                        <div>
+                            <label class="text-xs font-bold text-zinc-400 uppercase">Confirm New Password</label>
+                            <input type="password" id="account-settings-confirm-password" minlength="6" class="w-full border border-zinc-700 rounded-lg p-2 text-sm mt-1">
+                        </div>
+
+                        <p id="account-settings-message" class="text-sm font-semibold hidden"></p>
+
+                        <button type="submit" class="w-full bg-red-800 text-white p-2 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Save Changes</button>
+                    </form>
+                </div>
             </div>
         </section>
 
