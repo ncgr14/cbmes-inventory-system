@@ -967,6 +967,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let sessionTimerInterval = null;
     let timeLogCache = [];
 
+    // Chemical/Material/Apparatus are stock-tracked consumables (deduct an
+    // amount used); Equipment has no stock/unit column at all — it's just
+    // logged as used, nothing to deduct.
+    const USAGE_KIND_TABLE = { chemical: 'chemicals', material: 'materials', apparatus: 'apparatus', equipment: 'equipment' };
+    const USAGE_KIND_LABEL = { chemical: 'Chemical', material: 'Material', apparatus: 'Apparatus', equipment: 'Equipment' };
+
     function stopSessionTimer() {
         if (sessionTimerInterval) { clearInterval(sessionTimerInterval); sessionTimerInterval = null; }
     }
@@ -992,18 +998,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function populateUsageItemOptions() {
         const kind = document.getElementById('usage-kind').value;
-        const table = kind === 'chemical' ? 'chemicals' : 'equipment';
-        const { data, error } = await supabaseClient.from(table).select('id, name, stock, unit');
+        const isConsumable = kind !== 'equipment';
+        const table = USAGE_KIND_TABLE[kind];
+        const columns = isConsumable ? 'id, name, stock, unit' : 'id, name';
+        const { data, error } = await supabaseClient.from(table).select(columns);
         const select = document.getElementById('usage-item');
         usageItemCache = {};
         if (error || !data) { select.innerHTML = '<option value="">Select item…</option>'; return; }
         const sorted = [...data].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: 'base' }));
         sorted.forEach(item => { usageItemCache[item.id] = item; });
-        select.innerHTML = '<option value="">Select item…</option>' + sorted.map(item => kind === 'chemical'
+        select.innerHTML = '<option value="">Select item…</option>' + sorted.map(item => isConsumable
             ? `<option value="${item.id}">${item.name} (currently ${item.stock} ${item.unit || ''})</option>`
             : `<option value="${item.id}">${item.name}</option>`
         ).join('');
-        document.getElementById('usage-qty-wrap').classList.toggle('hidden', kind !== 'chemical');
+        document.getElementById('usage-qty-wrap').classList.toggle('hidden', !isConsumable);
     }
 
     async function renderSessionItems() {
@@ -1015,7 +1023,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         tbody.innerHTML = data.map(row => `<tr>
-            <td class="py-3">${row.kind === 'chemical' ? 'Chemical' : 'Equipment'}</td>
+            <td class="py-3">${USAGE_KIND_LABEL[row.kind] || row.kind}</td>
             <td>${row.item_name}</td>
             <td>${row.quantity_used !== null ? `${row.quantity_used} ${row.unit || ''}` : '—'}</td>
             <td><button onclick="removeUsageItem(${row.id})" class="text-red-600 hover:underline">Remove</button></td>
@@ -1023,14 +1031,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     window.removeUsageItem = async (id) => {
-        if (!confirm('Remove this item from the session? Any deducted chemical stock will be restored.')) return;
+        if (!confirm('Remove this item from the session? Any deducted stock will be restored.')) return;
         const { data: row } = await supabaseClient.from('usage_session_items').select('*').eq('id', id).single();
-        if (row && row.kind === 'chemical' && row.quantity_used) {
-            const { data: chem } = await supabaseClient.from('chemicals').select('stock').eq('id', row.item_id).single();
-            if (chem) {
-                const restored = (parseFloat(chem.stock) || 0) + parseFloat(row.quantity_used);
-                await supabaseClient.from('chemicals').update({ stock: restored }).eq('id', row.item_id);
-                fetchAndRenderTable('chemicals');
+        if (row && row.kind !== 'equipment' && row.quantity_used) {
+            const table = USAGE_KIND_TABLE[row.kind];
+            const { data: current } = await supabaseClient.from(table).select('stock').eq('id', row.item_id).single();
+            if (current) {
+                const restored = (parseFloat(current.stock) || 0) + parseFloat(row.quantity_used);
+                await supabaseClient.from(table).update({ stock: restored }).eq('id', row.item_id);
+                fetchAndRenderTable(table);
+                refreshAlerts(false);
             }
         }
         await supabaseClient.from('usage_session_items').delete().eq('id', id);
@@ -1048,15 +1058,17 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!itemId) { alert('Please select an item.'); return; }
         const item = usageItemCache[itemId];
 
+        const isConsumable = kind !== 'equipment';
         let quantityUsed = null;
-        if (kind === 'chemical') {
+        if (isConsumable) {
+            const table = USAGE_KIND_TABLE[kind];
             quantityUsed = parseFloat(document.getElementById('usage-qty').value);
             if (isNaN(quantityUsed) || quantityUsed <= 0) { alert('Please enter a valid amount used.'); return; }
             const currentStock = parseFloat(item.stock) || 0;
             if (quantityUsed > currentStock) { alert(`Not enough stock: only ${currentStock} ${item.unit || ''} of ${item.name} available.`); return; }
-            const { error: stockError } = await supabaseClient.from('chemicals').update({ stock: currentStock - quantityUsed }).eq('id', itemId);
+            const { error: stockError } = await supabaseClient.from(table).update({ stock: currentStock - quantityUsed }).eq('id', itemId);
             if (stockError) { alert(`Failed to deduct stock: ${stockError.message}`); return; }
-            fetchAndRenderTable('chemicals');
+            fetchAndRenderTable(table);
             refreshAlerts(false);
         }
 
@@ -1066,7 +1078,7 @@ document.addEventListener('DOMContentLoaded', () => {
             item_id: itemId,
             item_name: item.name,
             quantity_used: quantityUsed,
-            unit: kind === 'chemical' ? (item.unit || null) : null
+            unit: isConsumable ? (item.unit || null) : null
         }]);
         if (error) { alert(`Failed to log item: ${error.message}`); return; }
 
@@ -1135,7 +1147,9 @@ document.addEventListener('DOMContentLoaded', () => {
         tbody.innerHTML = rows.map(s => {
             const items = s.usage_session_items || [];
             const equipmentUsed = items.filter(i => i.kind === 'equipment').map(i => i.item_name).join(', ') || '—';
-            const chemicalsUsed = items.filter(i => i.kind === 'chemical').map(i => `${i.item_name} (${i.quantity_used} ${i.unit || ''})`).join(', ') || '—';
+            const consumablesUsed = items.filter(i => i.kind !== 'equipment')
+                .map(i => `${USAGE_KIND_LABEL[i.kind] || i.kind}: ${i.item_name} (${i.quantity_used} ${i.unit || ''})`)
+                .join(', ') || '—';
             const duration = s.time_out ? formatDuration(new Date(s.time_out) - new Date(s.time_in)) : `<span class="text-emerald-400 font-semibold">In progress</span>`;
             return `<tr>
                 <td class="py-3">${s.student_name || '—'}</td>
@@ -1144,7 +1158,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <td>${s.time_out ? new Date(s.time_out).toLocaleString() : '—'}</td>
                 <td>${duration}</td>
                 <td>${truncatedCell(equipmentUsed, 'max-w-[260px]')}</td>
-                <td>${truncatedCell(chemicalsUsed, 'max-w-[300px]')}</td>
+                <td>${truncatedCell(consumablesUsed, 'max-w-[320px]')}</td>
             </tr>`;
         }).join('');
     }

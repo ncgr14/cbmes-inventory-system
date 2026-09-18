@@ -850,12 +850,14 @@
                                 <button id="time-out-btn" type="button" class="bg-red-800 text-white font-semibold py-2 px-6 rounded-lg hover:bg-red-900 transition-colors cursor-pointer">Time Out</button>
                             </div>
 
-                            <h4 class="text-xs font-bold text-zinc-500 uppercase mb-2">Add Equipment / Chemicals Used</h4>
+                            <h4 class="text-xs font-bold text-zinc-500 uppercase mb-2">Add Equipment / Chemicals / Materials / Apparatus Used</h4>
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 items-end mb-4">
                                 <div>
                                     <label class="text-xs font-bold text-zinc-500 uppercase block mb-1">Type</label>
                                     <select id="usage-kind" class="w-full border border-zinc-700 rounded-lg p-2 text-sm">
                                         <option value="chemical">Chemical</option>
+                                        <option value="material">Material</option>
+                                        <option value="apparatus">Apparatus</option>
                                         <option value="equipment">Equipment</option>
                                     </select>
                                 </div>
@@ -890,7 +892,7 @@
                         </div>
                         <div class="table-container overflow-x-auto">
                             <table class="w-full text-left">
-                                <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px] max-w-[220px]">Student</th><th class="min-w-[110px]">Student #</th><th class="min-w-[140px]">Time In</th><th class="min-w-[140px]">Time Out</th><th class="min-w-[100px]">Duration</th><th class="min-w-[220px]">Equipment Used</th><th class="min-w-[260px]">Chemicals Used</th></tr></thead>
+                                <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[160px] max-w-[220px]">Student</th><th class="min-w-[110px]">Student #</th><th class="min-w-[140px]">Time In</th><th class="min-w-[140px]">Time Out</th><th class="min-w-[100px]">Duration</th><th class="min-w-[220px]">Equipment Used</th><th class="min-w-[280px]">Consumables Used</th></tr></thead>
                                 <tbody id="timelog-table-body"></tbody>
                             </table>
                         </div>
