@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const densityToggle = document.getElementById('density-toggle');
     const adminPanelCard = document.getElementById('admin-panel-card');
     const budgetNavCard = document.getElementById('budget-nav-card');
+    const suppliersNavCard = document.getElementById('suppliers-nav-card');
     const notificationBell = document.getElementById('notification-bell');
     const notificationBadge = document.getElementById('notification-badge');
     const notificationModal = document.getElementById('notification-modal');
@@ -211,7 +212,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!initialHashHandled) {
                 initialHashHandled = true;
                 const hash = window.location.hash.replace('#', '');
-                if (hash && divisionData[hash] && ((hash !== 'admin-settings' && hash !== 'budget') || currentUserRole === 'Admin')) {
+                if (hash && divisionData[hash] && (!ADMIN_ONLY_DIVISIONS.has(hash) || currentUserRole === 'Admin')) {
                     openDivision(hash, false);
                 }
             }
@@ -222,11 +223,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (currentUserRole === 'Student') {
                 adminPanelCard.classList.add('hidden');
                 budgetNavCard.classList.add('hidden');
+                suppliersNavCard.classList.add('hidden');
                 adminForms.forEach(form => form.classList.add('hidden'));
                 tableContainers.forEach(container => container.classList.replace('md:col-span-2', 'md:col-span-3'));
             } else {
                 adminPanelCard.classList.remove('hidden');
                 budgetNavCard.classList.remove('hidden');
+                suppliersNavCard.classList.remove('hidden');
                 adminForms.forEach(form => form.classList.remove('hidden'));
                 tableContainers.forEach(container => container.classList.replace('md:col-span-3', 'md:col-span-2'));
             }
@@ -454,6 +457,10 @@ document.addEventListener('DOMContentLoaded', () => {
         timelog: { title: "Lab Time Log", description: "Time in and out of the lab, and record what equipment and chemicals were used during each session." },
         requests: { title: "Item Requests", description: "Request new chemicals or lab equipment that the department should stock." }
     };
+
+    // Divisions hidden from the Student dashboard and blocked from direct
+    // URL/hash access for non-Admins.
+    const ADMIN_ONLY_DIVISIONS = new Set(['admin-settings', 'budget', 'suppliers']);
 
     // ------------------------------------------------------------------
     // Helpers
@@ -1311,7 +1318,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openDivision(targetDivision, pushHistory) {
         if (!divisionData[targetDivision]) return;
-        if ((targetDivision === 'admin-settings' || targetDivision === 'budget') && currentUserRole !== 'Admin') { goHome(true); return; }
+        if (ADMIN_ONLY_DIVISIONS.has(targetDivision) && currentUserRole !== 'Admin') { goHome(true); return; }
         stopSessionTimer();
         if(divisionTitle) divisionTitle.innerText = divisionData[targetDivision].title;
         if(divisionDesc) divisionDesc.innerText = divisionData[targetDivision].description;
