@@ -1398,6 +1398,21 @@ document.addEventListener('DOMContentLoaded', () => {
         accountSettingsMessage.classList.add('text-zinc-400');
         accountSettingsMessage.innerText = 'Saving…';
 
+        // Re-sync the client's in-memory session from storage before mutating.
+        // If another tab confirmed an email/password change (or rotated the
+        // refresh token) since this tab last touched auth, the in-memory
+        // client here can go stale and updateUser() fails with a raw
+        // "Auth session missing" error — refreshing first fixes that for any
+        // still-valid session, and gives a clear message for a genuinely
+        // expired one instead of a cryptic SDK error.
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            accountSettingsMessage.classList.remove('text-zinc-400');
+            accountSettingsMessage.classList.add('text-red-500');
+            accountSettingsMessage.innerText = 'Your session has expired. Please log out and back in, then try again.';
+            return;
+        }
+
         // Only the fields the user actually changed — a bare {data: {full_name}}
         // merges into existing user_metadata rather than replacing it, so role
         // and student_number are never touched from this form.
@@ -1411,7 +1426,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (error) {
             accountSettingsMessage.classList.remove('text-zinc-400');
             accountSettingsMessage.classList.add('text-red-500');
-            accountSettingsMessage.innerText = `Failed to save: ${error.message}`;
+            accountSettingsMessage.innerText = error.message === 'Auth session missing!'
+                ? 'Your session has expired. Please log out and back in, then try again.'
+                : `Failed to save: ${error.message}`;
             return;
         }
 
