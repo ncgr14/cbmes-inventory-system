@@ -67,6 +67,20 @@
         .table-container table tbody tr:nth-child(even) td:first-child { background-color: #1f1f22; }
         .table-container table tbody tr:hover td:first-child { background-color: #26262a; }
 
+        /* The pending-usage-items table (Time Log) sits inside a bg-zinc-800
+           panel, not the usual bg-zinc-900 card, so its pinned column needs
+           its own base/zebra/hover colors to match that lighter backdrop —
+           otherwise the first cell reads as a stray dark box (as above, but
+           recomputed against #27272a instead of #18181b). */
+        #usage-pending-container table thead th,
+        #usage-pending-container table th:first-child,
+        #usage-pending-container table td:first-child {
+            background-color: #27272a;
+            box-shadow: 0 1px 0 0 #3f3f46, 1px 0 0 0 #3f3f46;
+        }
+        #usage-pending-container table tbody tr:nth-child(even) td:first-child { background-color: #2d2d30; }
+        #usage-pending-container table tbody tr:hover td:first-child { background-color: #2f2f34; }
+
         /* Row Density: Standard is the default; Comfortable/Compact are
            toggled via data-density on <body> and apply to every table. */
         body[data-density="comfortable"] table tbody td { padding-top: 20px; padding-bottom: 20px; }
@@ -177,6 +191,17 @@
         }
         body[data-theme="light"] .table-container table tbody tr:nth-child(even) td:first-child { background-color: #fafafa; }
         body[data-theme="light"] .table-container table tbody tr:hover td:first-child { background-color: #f5f5f5; }
+
+        /* Light-mode counterpart of the pending-usage-items override above —
+           this table's panel remaps to zinc-100 in light mode, not white. */
+        body[data-theme="light"] #usage-pending-container table thead th,
+        body[data-theme="light"] #usage-pending-container table th:first-child,
+        body[data-theme="light"] #usage-pending-container table td:first-child {
+            background-color: #f4f4f5;
+            box-shadow: 0 1px 0 0 #d4d4d8, 1px 0 0 0 #d4d4d8;
+        }
+        body[data-theme="light"] #usage-pending-container table tbody tr:nth-child(even) td:first-child { background-color: #efeff0; }
+        body[data-theme="light"] #usage-pending-container table tbody tr:hover td:first-child { background-color: #eaeaeb; }
 
         body[data-theme="light"] ::-webkit-scrollbar-track { background: #f4f4f5; }
         body[data-theme="light"] ::-webkit-scrollbar-thumb { background: #d4d4d8; }
@@ -872,7 +897,7 @@
                                 <button id="add-usage-item-btn" type="button" class="w-full bg-zinc-900 border border-zinc-700 text-zinc-300 hover:bg-zinc-700 font-semibold p-2 rounded-lg transition-colors cursor-pointer sm:col-span-4">+ Add to Session</button>
                             </div>
 
-                            <div class="table-container overflow-x-auto">
+                            <div id="usage-pending-container" class="table-container overflow-x-auto">
                                 <table class="w-full text-left">
                                     <thead><tr class="border-b uppercase text-xs font-bold text-zinc-500"><th class="min-w-[90px]">Type</th><th class="min-w-[200px]">Item</th><th class="min-w-[120px]">Amount Used</th><th class="min-w-[80px]">Remove</th></tr></thead>
                                     <tbody id="usage-pending-body"><tr><td colspan="4" class="py-4 text-zinc-500 text-sm">Nothing added yet.</td></tr></tbody>
