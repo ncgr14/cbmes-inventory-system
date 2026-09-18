@@ -25,6 +25,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeIconMoon = document.getElementById('theme-icon-moon');
     const densityToggle = document.getElementById('density-toggle');
     const adminPanelCard = document.getElementById('admin-panel-card');
+    const budgetNavCard = document.getElementById('budget-nav-card');
     const notificationBell = document.getElementById('notification-bell');
     const notificationBadge = document.getElementById('notification-badge');
     const notificationModal = document.getElementById('notification-modal');
@@ -210,7 +211,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!initialHashHandled) {
                 initialHashHandled = true;
                 const hash = window.location.hash.replace('#', '');
-                if (hash && divisionData[hash] && (hash !== 'admin-settings' || currentUserRole === 'Admin')) {
+                if (hash && divisionData[hash] && ((hash !== 'admin-settings' && hash !== 'budget') || currentUserRole === 'Admin')) {
                     openDivision(hash, false);
                 }
             }
@@ -220,10 +221,12 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (currentUserRole === 'Student') {
                 adminPanelCard.classList.add('hidden');
+                budgetNavCard.classList.add('hidden');
                 adminForms.forEach(form => form.classList.add('hidden'));
                 tableContainers.forEach(container => container.classList.replace('md:col-span-2', 'md:col-span-3'));
             } else {
                 adminPanelCard.classList.remove('hidden');
+                budgetNavCard.classList.remove('hidden');
                 adminForms.forEach(form => form.classList.remove('hidden'));
                 tableContainers.forEach(container => container.classList.replace('md:col-span-3', 'md:col-span-2'));
             }
@@ -1308,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function openDivision(targetDivision, pushHistory) {
         if (!divisionData[targetDivision]) return;
-        if (targetDivision === 'admin-settings' && currentUserRole !== 'Admin') { goHome(true); return; }
+        if ((targetDivision === 'admin-settings' || targetDivision === 'budget') && currentUserRole !== 'Admin') { goHome(true); return; }
         stopSessionTimer();
         if(divisionTitle) divisionTitle.innerText = divisionData[targetDivision].title;
         if(divisionDesc) divisionDesc.innerText = divisionData[targetDivision].description;
