@@ -628,13 +628,13 @@ document.addEventListener('DOMContentLoaded', () => {
         return [...data].sort((a, b) => String(a[field] || '').localeCompare(String(b[field] || ''), undefined, { sensitivity: 'base' }));
     }
 
-    // Wraps action links/buttons in a flex row so they always sit on one
-    // line and stay right-aligned, instead of the browser wrapping them
-    // onto separate lines whenever a table gets width-constrained (which
-    // used to stretch every row's height to match, leaving other single-line
-    // cells stranded with an ugly empty gap below them).
+    // Stacks action links/buttons (Edit above Delete) right-aligned under
+    // the "Actions" header, rather than side by side — every row gets the
+    // same predictable two-line height instead of the browser wrapping
+    // them unpredictably whenever a table gets width-constrained (which
+    // used to leave other single-line cells stranded with an ugly gap).
     function actionsCell(innerHtml) {
-        return `<div class="flex flex-nowrap justify-end items-center gap-3">${innerHtml}</div>`;
+        return `<div class="flex flex-col items-end gap-1">${innerHtml}</div>`;
     }
 
     function actionButtonsFor(table, i) {
